@@ -1,9 +1,5 @@
 import 'package:core_dashboard/pages/authentication/logic/cubit/auth_cubit.dart';
 import 'package:core_dashboard/pages/authentication/logic/cubit/auth_state.dart';
-import 'package:core_dashboard/pages/categories/categories_page.dart';
-import 'package:core_dashboard/pages/categories/data/repositories/category_repository.dart';
-import 'package:core_dashboard/pages/categories/logic/cubit/category_cubit.dart';
-import 'package:core_dashboard/pages/products/view/products_page.dart';
 import 'package:core_dashboard/pages/dashboard/widgets/theme_tabs.dart';
 import 'package:core_dashboard/responsive.dart';
 import 'package:core_dashboard/shared/constants/defaults.dart';
@@ -85,25 +81,13 @@ class Sidebar extends StatelessWidget {
                           isSubmenu: true,
                           title: "Products",
                           count: 16,
-                          onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const ProductsPage(),
-                              )),
+                          onPressed: () => context.go('/products'),
                         ),
                         MenuTile(
-                            isSubmenu: true,
-                            title: "Categories",
-                            onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => BlocProvider(
-                                    create: (context) =>
-                                        CategoryCubit(CategoryRepository())
-                                          ..fetchCategories(),
-                                    child: const CategoriesPage(),
-                                  ),
-                                ))),
+                          isSubmenu: true,
+                          title: "Categories",
+                          onPressed: () => context.go('/categories'),
+                        ),
                       ],
                     ),
 

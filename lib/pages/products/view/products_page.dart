@@ -1,54 +1,75 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
+import 'package:core_dashboard/pages/products/logic/cubit/product_cubit.dart';
+import 'package:core_dashboard/pages/products/logic/cubit/product_state.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
-class ProductsPage extends StatelessWidget {
+import 'package:core_dashboard/pages/products/view/widgets/add_product.dart';
+import 'package:core_dashboard/pages/products/view/widgets/delete_product.dart';
+import 'package:core_dashboard/pages/products/view/widgets/update_product.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+class ProductsPage extends StatefulWidget {
   const ProductsPage({super.key});
+
+  @override
+  State<ProductsPage> createState() => _ProductsPageState();
+}
+
+class _ProductsPageState extends State<ProductsPage> {
+  @override
+  void initState() {
+    context.read<ProductCubit>().fetchProducts();
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 1,
+        title: const Text(
+          'Products Management',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1F2937),
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: ElevatedButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => const AddProductDialog(),
+                );
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Add Product'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5542F6),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // العنوان وزر الإضافة
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Products Management',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => const AddProductDialog(),
-                    );
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Product'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5542F6),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
             // حقل البحث والفلترة
             Row(
               children: [
@@ -142,7 +163,7 @@ class ProductsPage extends StatelessWidget {
                         children: [
                           // صورة المنتج
                           SizedBox(
-                            width: 60,
+                            width: 50,
                             child: Text(
                               'Image',
                               style: TextStyle(
@@ -151,12 +172,23 @@ class ProductsPage extends StatelessWidget {
                               ),
                             ),
                           ),
-                          SizedBox(width: 16),
+                          SizedBox(width: 12),
                           // اسم المنتج
                           Expanded(
                             flex: 2,
                             child: Text(
-                              'Product Name',
+                              'Name',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ),
+                          // الوصف
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Description',
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF6B7280),
@@ -183,10 +215,20 @@ class ProductsPage extends StatelessWidget {
                               ),
                             ),
                           ),
-                          // الحالة
+                          // المخزون
                           Expanded(
                             child: Text(
-                              'Status',
+                              'Stock',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ),
+                          // التقييم
+                          Expanded(
+                            child: Text(
+                              'Rating',
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF6B7280),
@@ -211,45 +253,52 @@ class ProductsPage extends StatelessWidget {
                     const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
                     // محتوى الجدول (بيانات وهمية للعرض)
+                    // ... داخل الـ Column في ProductsPage
                     Expanded(
-                      child: ListView(
-                        children: const [
-                          ProductRow(
-                            imageUrl: 'https://via.placeholder.com/50',
-                            name: 'Classic T-Shirt',
-                            category: 'Men',
-                            price: 29.99,
-                            status: 'In Stock',
-                          ),
-                          ProductRow(
-                            imageUrl: 'https://via.placeholder.com/50',
-                            name: 'Summer Dress',
-                            category: 'Women',
-                            price: 49.99,
-                            status: 'In Stock',
-                          ),
-                          ProductRow(
-                            imageUrl: 'https://via.placeholder.com/50',
-                            name: 'Kids Sneakers',
-                            category: 'Kids',
-                            price: 35.00,
-                            status: 'Low Stock',
-                          ),
-                          ProductRow(
-                            imageUrl: 'https://via.placeholder.com/50',
-                            name: 'Running Shoes',
-                            category: 'Shoes',
-                            price: 89.99,
-                            status: 'In Stock',
-                          ),
-                          ProductRow(
-                            imageUrl: 'https://via.placeholder.com/50',
-                            name: 'Winter Jacket',
-                            category: 'Men',
-                            price: 120.00,
-                            status: 'Out of Stock',
-                          ),
-                        ],
+                      child: BlocBuilder<ProductCubit, ProductState>(
+                        builder: (context, state) {
+                          if (state is ProductLoading) {
+                            return const Center(
+                                child: CircularProgressIndicator(
+                                    color: Color(0xFF5542F6)));
+                          }
+
+                          if (state is ProductError) {
+                            return Center(
+                                child: Text('Error: ${state.message}',
+                                    style: const TextStyle(
+                                        color: Color(0xFFEF4444))));
+                          }
+
+                          if (state is ProductLoaded) {
+                            final products = state.products;
+
+                            if (products.isEmpty) {
+                              return const Center(
+                                  child: Text("No products found."));
+                            }
+
+                            return ListView.builder(
+                              itemCount: products.length,
+                              itemBuilder: (context, index) {
+                                final product = products[index];
+                                return ProductRow(
+                                  // استخدمنا الـ ?? لتجنب الـ Crash في حال كانت القيمة null
+                                  imageUrl: product.imageUrl ?? '',
+                                  name: product.name,
+                                  description: product.description,
+                                  category: product.category ?? '',
+                                  price: (product.price ?? 0.0).toDouble(),
+                                  stock: (product.stock ?? 0).toInt(),
+                                  rating: (product.rating ?? 0.0).toDouble(),
+                                );
+                              },
+                            );
+                          }
+
+                          // حالة احتياطية في حال لم يتحقق أي شرط
+                          return const Center(child: Text("Please wait..."));
+                        },
                       ),
                     ),
                   ],
@@ -267,18 +316,22 @@ class ProductsPage extends StatelessWidget {
 class ProductRow extends StatelessWidget {
   final String imageUrl;
   final String name;
+  final String description;
   final String category;
   final double price;
-  final String status;
+  final int stock;
+  final double rating;
 
   const ProductRow({
-    super.key,
+    Key? key,
     required this.imageUrl,
     required this.name,
+    required this.description,
     required this.category,
     required this.price,
-    required this.status,
-  });
+    required this.stock,
+    required this.rating,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -313,7 +366,7 @@ class ProductRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
 
           // اسم المنتج
           Expanded(
@@ -325,13 +378,28 @@ class ProductRow extends StatelessWidget {
                 color: Color(0xFF1F2937),
                 fontSize: 15,
               ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+
+          // الوصف
+          Expanded(
+            flex: 2,
+            child: Text(
+              description,
+              style: const TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 13,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ),
 
           // الفئة
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: const Color(0xFFEEF2FF),
                 borderRadius: BorderRadius.circular(20),
@@ -341,9 +409,10 @@ class ProductRow extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Color(0xFF5542F6),
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
@@ -360,9 +429,27 @@ class ProductRow extends StatelessWidget {
             ),
           ),
 
-          // الحالة
+          // المخزون
           Expanded(
-            child: _buildStatusBadge(status),
+            child: _buildStockBadge(stock),
+          ),
+
+          // التقييم
+          Expanded(
+            child: Row(
+              children: [
+                const Icon(Icons.star, color: Color(0xFFFBBF24), size: 18),
+                const SizedBox(width: 4),
+                Text(
+                  rating.toStringAsFixed(1),
+                  style: const TextStyle(
+                    color: Color(0xFF1F2937),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
 
           // الأزرار
@@ -375,7 +462,7 @@ class ProductRow extends StatelessWidget {
                   onPressed: () {
                     showDialog(
                       context: context,
-                      builder: (context) => EditProductDialog(name: name),
+                      builder: (context) => UpdateProductDialog(name: name),
                     );
                   },
                   icon: const Icon(Icons.edit_outlined),
@@ -401,707 +488,39 @@ class ProductRow extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusBadge(String status) {
+  // بناء badge المخزون بناءً على الكمية
+  Widget _buildStockBadge(int stock) {
     Color bgColor;
     Color textColor;
+    String text;
 
-    switch (status) {
-      case 'In Stock':
-        bgColor = const Color(0xFFD1FAE5);
-        textColor = const Color(0xFF059669);
-        break;
-      case 'Low Stock':
-        bgColor = const Color(0xFFFEF3C7);
-        textColor = const Color(0xFFD97706);
-        break;
-      case 'Out of Stock':
-        bgColor = const Color(0xFFFEE2E2);
-        textColor = const Color(0xFFDC2626);
-        break;
-      default:
-        bgColor = const Color(0xFFF3F4F6);
-        textColor = const Color(0xFF6B7280);
+    if (stock > 10) {
+      bgColor = const Color(0xFFD1FAE5);
+      textColor = const Color(0xFF059669);
+      text = 'In Stock ($stock)';
+    } else if (stock > 0) {
+      bgColor = const Color(0xFFFEF3C7);
+      textColor = const Color(0xFFD97706);
+      text = 'Low Stock ($stock)';
+    } else {
+      bgColor = const Color(0xFFFEE2E2);
+      textColor = const Color(0xFFDC2626);
+      text = 'Out of Stock';
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        status,
+        text,
         textAlign: TextAlign.center,
         style: TextStyle(
           color: textColor,
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
-
-// Dialog إضافة منتج
-class AddProductDialog extends StatelessWidget {
-  const AddProductDialog({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 500,
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // العنوان
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Add New Product',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1F2937),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                    color: const Color(0xFF6B7280),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // رفع الصورة
-              const Text(
-                'Product Image',
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF374151),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                height: 120,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: const Color(0xFFE5E7EB),
-                    style: BorderStyle.solid,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: InkWell(
-                  onTap: () {},
-                  borderRadius: BorderRadius.circular(8),
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.cloud_upload_outlined,
-                        size: 40,
-                        color: Color(0xFF9CA3AF),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Click to upload image',
-                        style: TextStyle(color: Color(0xFF6B7280)),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // اسم المنتج
-              const Text(
-                'Product Name',
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF374151),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: 'Enter product name',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // الوصف
-              const Text(
-                'Description',
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF374151),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'Enter product description',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
-                  contentPadding: const EdgeInsets.all(16),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // السعر والفئة في صف واحد
-              Row(
-                children: [
-                  // السعر
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Price',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF374151),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            hintText: '0.00',
-                            prefixText: '\$ ',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFFE5E7EB)),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFFE5E7EB)),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  // الفئة
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Category',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF374151),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border:
-                                Border.all(color: const Color(0xFFE5E7EB)),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: 'Men',
-                              isExpanded: true,
-                              icon: const Icon(Icons.keyboard_arrow_down),
-                              items: ['Men', 'Women', 'Kids', 'Shoes']
-                                  .map((category) => DropdownMenuItem(
-                                        value: category,
-                                        child: Text(category),
-                                      ))
-                                  .toList(),
-                              onChanged: (value) {},
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // الحالة
-              const Text(
-                'Status',
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF374151),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: 'In Stock',
-                    isExpanded: true,
-                    icon: const Icon(Icons.keyboard_arrow_down),
-                    items: ['In Stock', 'Low Stock', 'Out of Stock']
-                        .map((status) => DropdownMenuItem(
-                              value: status,
-                              child: Text(status),
-                            ))
-                        .toList(),
-                    onChanged: (value) {},
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // الأزرار
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(color: Color(0xFF6B7280)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF5542F6),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text('Save Product'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Dialog تعديل منتج
-class EditProductDialog extends StatelessWidget {
-  final String name;
-
-  const EditProductDialog({super.key, required this.name});
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 500,
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // العنوان
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Edit Product',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1F2937),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                    color: const Color(0xFF6B7280),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // الصورة الحالية
-              const Text(
-                'Product Image',
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF374151),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                height: 120,
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                  borderRadius: BorderRadius.circular(8),
-                  color: const Color(0xFFF9FAFB),
-                ),
-                child: Stack(
-                  children: [
-                    const Center(
-                      child: Icon(
-                        Icons.image_outlined,
-                        size: 50,
-                        color: Color(0xFF9CA3AF),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 8,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: TextButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('Change Image'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF5542F6),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // اسم المنتج
-              const Text(
-                'Product Name',
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF374151),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                initialValue: name,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // الوصف
-              const Text(
-                'Description',
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF374151),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                initialValue: 'Product description here...',
-                maxLines: 3,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                  ),
-                  contentPadding: const EdgeInsets.all(16),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // السعر والفئة
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Price',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF374151),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          initialValue: '29.99',
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            prefixText: '\$ ',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFFE5E7EB)),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  const BorderSide(color: Color(0xFFE5E7EB)),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Category',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF374151),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border:
-                                Border.all(color: const Color(0xFFE5E7EB)),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: 'Men',
-                              isExpanded: true,
-                              icon: const Icon(Icons.keyboard_arrow_down),
-                              items: ['Men', 'Women', 'Kids', 'Shoes']
-                                  .map((category) => DropdownMenuItem(
-                                        value: category,
-                                        child: Text(category),
-                                      ))
-                                  .toList(),
-                              onChanged: (value) {},
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // الأزرار
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(color: Color(0xFF6B7280)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF5542F6),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text('Update Product'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Dialog حذف منتج
-class DeleteProductDialog extends StatelessWidget {
-  final String name;
-
-  const DeleteProductDialog({super.key, required this.name});
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 400,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // أيقونة التحذير
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEE2E2),
-                borderRadius: BorderRadius.circular(32),
-              ),
-              child: const Icon(
-                Icons.warning_amber_rounded,
-                color: Color(0xFFEF4444),
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // العنوان
-            const Text(
-              'Delete Product',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1F2937),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // الرسالة
-            Text(
-              'Are you sure you want to delete "$name"?',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF6B7280),
-                fontSize: 15,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This action cannot be undone.',
-              style: TextStyle(
-                color: Color(0xFFEF4444),
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // الأزرار
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: Color(0xFFE5E7EB)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: Color(0xFF6B7280)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEF4444),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text('Delete'),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ),
       ),
     );

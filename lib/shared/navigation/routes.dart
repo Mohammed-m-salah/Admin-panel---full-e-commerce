@@ -1,8 +1,14 @@
 import 'package:core_dashboard/pages/authentication/register_page.dart';
 import 'package:core_dashboard/pages/authentication/sign_in_page.dart';
 import 'package:core_dashboard/pages/categories/categories_page.dart';
+import 'package:core_dashboard/pages/categories/data/repositories/category_repository.dart';
+import 'package:core_dashboard/pages/categories/logic/cubit/category_cubit.dart';
 import 'package:core_dashboard/pages/dashboard/dashboard_page.dart';
 import 'package:core_dashboard/pages/entry_point.dart';
+import 'package:core_dashboard/pages/products/data/repositories/product_repositories.dart';
+import 'package:core_dashboard/pages/products/logic/cubit/product_cubit.dart';
+import 'package:core_dashboard/pages/products/view/products_page.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 final routerConfig = GoRouter(
@@ -30,7 +36,17 @@ final routerConfig = GoRouter(
     ),
     GoRoute(
       path: '/categories',
-      builder: (context, state) => const CategoriesPage(),
+      builder: (context, state) => BlocProvider(
+        create: (context) => CategoryCubit(CategoryRepository())..fetchCategories(),
+        child: const CategoriesPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/products',
+      builder: (context, state) => BlocProvider(
+        create: (context) => ProductCubit(ProductRepository())..fetchProducts(),
+        child: const ProductsPage(),
+      ),
     ),
 
     // GoRoute(

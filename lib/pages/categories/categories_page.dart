@@ -5,6 +5,7 @@ import 'package:core_dashboard/pages/categories/view/widgets/delete_category.dar
 import 'package:core_dashboard/pages/categories/view/widgets/update_category.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 class CategoriesPage extends StatelessWidget {
   const CategoriesPage({super.key});
@@ -13,53 +14,57 @@ class CategoriesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 1,
+        // leading: IconButton(
+        //   icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
+        //   onPressed: () => context.go('/entry-point'),
+        // ),
+        title: const Text(
+          'Categories Management',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1F2937),
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: ElevatedButton.icon(
+              onPressed: () {
+                final cubit = context.read<CategoryCubit>();
+                showDialog(
+                  context: context,
+                  builder: (dialogContext) => BlocProvider.value(
+                    value: cubit,
+                    child: const AddCategoryDialog(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Add Category'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5542F6),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // العنوان وزر الإضافة
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Categories Management',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    final cubit =
-                        context.read<CategoryCubit>(); // ① احصل على الـ Cubit
-                    showDialog(
-                      context: context,
-                      builder: (dialogContext) => BlocProvider.value(
-                        value: cubit, // ② مرره للـ Dialog
-                        child: const AddCategoryDialog(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Category'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5542F6),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
             // حقل البحث
             TextField(
               decoration: InputDecoration(
@@ -150,42 +155,44 @@ class CategoriesPage extends StatelessWidget {
                     const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
                     // محتوى الجدول
-                    Expanded(child: BlocBuilder<CategoryCubit, CategoryState>(
-                      builder: (context, state) {
-                        if (state is CategoryLoading) {
-                          return const Center(
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF5542F6),
-                            ),
-                          );
-                        } else if (state is CategoryError) {
-                          return Center(child: Text("Error: ${state.message}"));
-                        } else if (state is CategoryLoaded) {
-                          final categories = state.categories;
-                          if (categories.isEmpty) {
+                    Expanded(
+                      child: BlocBuilder<CategoryCubit, CategoryState>(
+                        builder: (context, state) {
+                          if (state is CategoryLoading) {
                             return const Center(
-                                child: Text("No categories found."));
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF5542F6),
+                              ),
+                            );
+                          } else if (state is CategoryError) {
+                            return Center(
+                                child: Text("Error: ${state.message}"));
+                          } else if (state is CategoryLoaded) {
+                            final categories = state.categories;
+                            if (categories.isEmpty) {
+                              return const Center(
+                                  child: Text("No categories found."));
+                            }
+                            return ListView.builder(
+                              itemCount: categories.length,
+                              itemBuilder: (context, index) {
+                                final category = categories[index];
+                                return CategoryRow(
+                                  id: category.id.toString(),
+                                  name: category.name,
+                                  date: category.createdAt
+                                          ?.toString()
+                                          .split(' ')[0] ??
+                                      '',
+                                );
+                              },
+                            );
                           }
-                          return ListView.builder(
-                            itemCount: categories.length,
-                            itemBuilder: (context, index) {
-                              final category = categories[index];
-                              return CategoryRow(
-                                id: category.id
-                                    .toString(), // مرر المعرف من قاعدة البيانات
-                                name: category.name,
-                                date: category.createdAt
-                                        ?.toString()
-                                        .split(' ')[0] ??
-                                    '',
-                              );
-                            },
-                          );
-                        }
-                        return const Center(
-                            child: Text("Press refresh to load categories"));
-                      },
-                    )),
+                          return const Center(
+                              child: Text("Press refresh to load categories"));
+                        },
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -207,7 +214,7 @@ class CategoryRow extends StatelessWidget {
     super.key,
     required this.name,
     required this.date,
-    required this.id, // أضف هذا
+    required this.id,
   });
 
   @override

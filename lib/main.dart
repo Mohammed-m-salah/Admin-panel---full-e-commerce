@@ -2,6 +2,8 @@ import 'package:core_dashboard/pages/authentication/logic/cubit/auth_cubit.dart'
 import 'package:core_dashboard/pages/authentication/repositories/auth_repository.dart';
 import 'package:core_dashboard/pages/categories/data/repositories/category_repository.dart';
 import 'package:core_dashboard/pages/categories/logic/cubit/category_cubit.dart';
+import 'package:core_dashboard/pages/products/data/repositories/product_repositories.dart';
+import 'package:core_dashboard/pages/products/logic/cubit/product_cubit.dart';
 import 'package:core_dashboard/shared/navigation/routes.dart';
 import 'package:core_dashboard/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +21,7 @@ void main() async {
       providers: [
         RepositoryProvider(create: (_) => AuthRepository()),
         RepositoryProvider(create: (_) => CategoryRepository()),
+        RepositoryProvider(create: (_) => ProductRepository()),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -31,6 +34,9 @@ void main() async {
                 CategoryCubit(context.read<CategoryRepository>())
                   ..fetchCategories(),
           ),
+          BlocProvider(
+              create: (context) => ProductCubit(
+                  context.read<ProductRepository>()..getAllProducts())),
         ],
         child: MainApp(),
       ),
