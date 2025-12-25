@@ -103,17 +103,11 @@ class Sidebar extends StatelessWidget {
                         ),
                       ),
                       children: [
-                        // MenuTile(
-                        //   isSubmenu: true,
-                        //   title: "Dashboard",
-                        //   onPressed: () {},
-                        // ),
-                        // MenuTile(
-                        //   isSubmenu: true,
-                        //   title: "Products",
-                        //   count: 16,
-                        //   onPressed: () {},
-                        // ),
+                        MenuTile(
+                          isSubmenu: true,
+                          title: "All Customers",
+                          onPressed: () => context.go('/customers'),
+                        ),
                       ],
                     ),
                     MenuTile(
