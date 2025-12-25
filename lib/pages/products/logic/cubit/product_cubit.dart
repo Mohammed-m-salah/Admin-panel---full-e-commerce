@@ -20,10 +20,12 @@ class ProductCubit extends Cubit<ProductState> {
 
   Future<void> addProduct(ProductModel product) async {
     try {
-      // لا نحتاج لتحويل الحالة لـ Loading هنا إذا كنت تريد بقاء القائمة ظاهرة
       await _repository.addProduct(product);
       emit(const ProductOperationSuccess("تم إضافة المنتج بنجاح"));
-      await fetchProducts();
+      // انتظار قليل ثم تحديث القائمة
+      await Future.delayed(const Duration(milliseconds: 100));
+      final products = await _repository.getAllProducts();
+      emit(ProductLoaded(products));
     } catch (e) {
       emit(ProductError(e.toString()));
     }
@@ -33,7 +35,10 @@ class ProductCubit extends Cubit<ProductState> {
     try {
       await _repository.updateProduct(product);
       emit(const ProductOperationSuccess("تم تحديث المنتج بنجاح"));
-      await fetchProducts(); // تحديث القائمة بعد التعديل
+      // انتظار قليل ثم تحديث القائمة
+      await Future.delayed(const Duration(milliseconds: 100));
+      final products = await _repository.getAllProducts();
+      emit(ProductLoaded(products));
     } catch (e) {
       emit(ProductError(e.toString()));
     }
@@ -43,7 +48,10 @@ class ProductCubit extends Cubit<ProductState> {
     try {
       await _repository.deleteProduct(id);
       emit(const ProductOperationSuccess("تم حذف المنتج بنجاح"));
-      await fetchProducts(); // تحديث القائمة بعد الحذف
+      // انتظار قليل ثم تحديث القائمة
+      await Future.delayed(const Duration(milliseconds: 100));
+      final products = await _repository.getAllProducts();
+      emit(ProductLoaded(products));
     } catch (e) {
       emit(ProductError(e.toString()));
     }

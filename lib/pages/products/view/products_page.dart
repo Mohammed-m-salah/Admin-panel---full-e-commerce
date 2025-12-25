@@ -1,13 +1,14 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
-import 'package:core_dashboard/pages/products/logic/cubit/product_cubit.dart';
-import 'package:core_dashboard/pages/products/logic/cubit/product_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:core_dashboard/pages/products/data/model/product_model.dart';
+import 'package:core_dashboard/pages/products/logic/cubit/product_cubit.dart';
+import 'package:core_dashboard/pages/products/logic/cubit/product_state.dart';
 import 'package:core_dashboard/pages/products/view/widgets/add_product.dart';
 import 'package:core_dashboard/pages/products/view/widgets/delete_product.dart';
 import 'package:core_dashboard/pages/products/view/widgets/update_product.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ProductsPage extends StatefulWidget {
   const ProductsPage({super.key});
@@ -43,9 +44,12 @@ class _ProductsPageState extends State<ProductsPage> {
             padding: const EdgeInsets.only(right: 16),
             child: ElevatedButton.icon(
               onPressed: () {
+                final cubit = context.read<ProductCubit>();
+
                 showDialog(
                   context: context,
-                  builder: (context) => const AddProductDialog(),
+                  builder: (context) => BlocProvider.value(
+                      value: cubit, child: const AddProductDialog()),
                 );
               },
               icon: const Icon(Icons.add),
@@ -283,14 +287,15 @@ class _ProductsPageState extends State<ProductsPage> {
                               itemBuilder: (context, index) {
                                 final product = products[index];
                                 return ProductRow(
-                                  // استخدمنا الـ ?? لتجنب الـ Crash في حال كانت القيمة null
+                                  id: product.id,
                                   imageUrl: product.imageUrl ?? '',
                                   name: product.name,
                                   description: product.description,
                                   category: product.category ?? '',
-                                  price: (product.price ?? 0.0).toDouble(),
-                                  stock: (product.stock ?? 0).toInt(),
-                                  rating: (product.rating ?? 0.0).toDouble(),
+                                  price: product.price ?? 0.0, // ✅ قيمة افتراضية
+                                  stock: product.stock ?? 0,
+                                  rating: product.rating ?? 0.0,
+                                  stockStatus: product.stockStatus,
                                 );
                               },
                             );
@@ -314,6 +319,7 @@ class _ProductsPageState extends State<ProductsPage> {
 
 // صف المنتج في الجدول
 class ProductRow extends StatelessWidget {
+  final String? id;
   final String imageUrl;
   final String name;
   final String description;
@@ -321,9 +327,11 @@ class ProductRow extends StatelessWidget {
   final double price;
   final int stock;
   final double rating;
+  final String? stockStatus; // ✅ إضافة stockStatus
 
   const ProductRow({
-    Key? key,
+    super.key,
+    this.id,
     required this.imageUrl,
     required this.name,
     required this.description,
@@ -331,7 +339,8 @@ class ProductRow extends StatelessWidget {
     required this.price,
     required this.stock,
     required this.rating,
-  }) : super(key: key);
+    this.stockStatus,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -460,9 +469,26 @@ class ProductRow extends StatelessWidget {
               children: [
                 IconButton(
                   onPressed: () {
+                    final cubit = context.read<ProductCubit>();
+
                     showDialog(
                       context: context,
-                      builder: (context) => UpdateProductDialog(name: name),
+                      builder: (context) => BlocProvider.value(
+                        value: cubit,
+                        child: UpdateProductDialog(
+                          product: ProductModel(
+                            id: id,
+                            name: name,
+                            description: description,
+                            price: price,
+                            category: category,
+                            stock: stock,
+                            rating: rating,
+                            imageUrl: imageUrl,
+                            stockStatus: stockStatus, // ✅ تمرير stockStatus
+                          ),
+                        ),
+                      ),
                     );
                   },
                   icon: const Icon(Icons.edit_outlined),
@@ -471,9 +497,16 @@ class ProductRow extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: () {
+                    final cubit = context.read<ProductCubit>();
+
                     showDialog(
                       context: context,
-                      builder: (context) => DeleteProductDialog(name: name),
+                      builder: (context) => BlocProvider.value(
+                        value: cubit,
+                        child: DeleteProductDialog(
+                            product: ProductModel(
+                                id: id, name: name, description: description)),
+                      ),
                     );
                   },
                   icon: const Icon(Icons.delete_outline),

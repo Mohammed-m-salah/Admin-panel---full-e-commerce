@@ -2,9 +2,11 @@ class ProductModel {
   final String? id;
   final String name;
   final String description;
-  final double price;
+  final double? price;
   final String? category;
-  final int? stock;
+  final int? stock; // هذا للكمية (رقم)
+  final String?
+      stockStatus; // تم تغيير النوع هنا إلى String ليتوافق مع "In Stock"
   final double? rating;
   final String? imageUrl;
   final DateTime? createdAt;
@@ -14,27 +16,27 @@ class ProductModel {
     this.id,
     required this.name,
     required this.description,
-    required this.price,
+    this.price,
     this.category,
     this.stock,
+    this.stockStatus, // تحديث هنا
     this.rating,
     this.imageUrl,
     this.createdAt,
     this.updatedAt,
   });
-
-  /// تحويل البيانات القادمة من Supabase (Map) إلى كائن ProductModel
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     return ProductModel(
       id: json['id']?.toString(),
       name: json['name'] ?? '',
       description: json['description'] ?? '',
-      // السعر: تحويل آمن لـ double
       price: (json['price'] ?? 0).toDouble(),
       category: json['category']?.toString(),
-      // المخزون: تحويل آمن لـ int
-      stock: json['stock'] != null ? (json['stock'] as num).toInt() : null,
-      // التقييم: تحويل آمن لـ double
+      // تحويل آمن جداً للمخزون: يحاول التحويل لرقم، وإذا فشل يضع null
+      stock:
+          json['stock'] != null ? int.tryParse(json['stock'].toString()) : null,
+      // قراءة الحالة كنص (String) لمنع خطأ TypeError
+      stockStatus: json['stock_status']?.toString(),
       rating:
           json['rating'] != null ? (json['rating'] as num).toDouble() : null,
       imageUrl: json['image_url'],
@@ -46,7 +48,6 @@ class ProductModel {
           : null,
     );
   }
-
   Map<String, dynamic> toJson() {
     return {
       if (id != null) 'id': id,
@@ -55,6 +56,7 @@ class ProductModel {
       'price': price,
       'category': category,
       'stock': stock,
+      'stock_status': stockStatus, // إرسال النص لقاعدة البيانات
       'rating': rating,
       'image_url': imageUrl,
     };
