@@ -1,14 +1,51 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../logic/cubit/customer_cubit.dart';
 
-class DeleteCustomerDialog extends StatelessWidget {
+class DeleteCustomerDialog extends StatefulWidget {
   final String id;
-  final String name;
+  final String email;
 
   const DeleteCustomerDialog({
     super.key,
     required this.id,
-    required this.name,
+    required this.email,
   });
+
+  @override
+  State<DeleteCustomerDialog> createState() => _DeleteCustomerDialogState();
+}
+
+class _DeleteCustomerDialogState extends State<DeleteCustomerDialog> {
+  bool _isLoading = false;
+
+  void _deleteCustomer() async {
+    setState(() => _isLoading = true);
+
+    try {
+      await context.read<CustomerCubit>().deleteCustomer(widget.id);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Customer deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete customer: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +81,7 @@ class DeleteCustomerDialog extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Are you sure you want to delete "$name"?',
+              'Are you sure you want to delete "${widget.email}"?',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFF6B7280),
@@ -65,7 +102,7 @@ class DeleteCustomerDialog extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _isLoading ? null : () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       side: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -82,16 +119,25 @@ class DeleteCustomerDialog extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _isLoading ? null : _deleteCustomer,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEF4444),
+                      backgroundColor: const Color(0xFFEF4444), // أحمر
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const Text('Delete'),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Delete'),
                   ),
                 ),
               ],

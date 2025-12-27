@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../data/model/customer_model.dart';
+import '../../logic/cubit/customer_cubit.dart';
 
 class AddCustomerDialog extends StatefulWidget {
   const AddCustomerDialog({super.key});
@@ -12,8 +15,9 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  String selectedCity = 'Riyadh';
+  String selectedCity = 'Gaza';
   String selectedStatus = 'Active';
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -69,7 +73,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
               TextField(
                   controller: _nameController,
                   decoration: _inputDecoration(
-                      'Enter customer name', Icons.person_outline)),
+                      'Enter customer name', Icons.person_outline),),
               const SizedBox(height: 16),
 
               // Email
@@ -156,14 +160,23 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: _isLoading ? null : _addCustomer,
                       style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF5542F6),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8))),
-                      child: const Text('Add Customer'),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Add Customer'),
                     ),
                   ),
                 ],
@@ -173,6 +186,68 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
         ),
       ),
     );
+  }
+
+  void _addCustomer() async {
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter customer name'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_emailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter email address'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final customer = CustomerModel(
+      name: _nameController.text.trim(),
+      email: _emailController.text.trim(),
+      phone: _phoneController.text.trim().isEmpty
+          ? null
+          : _phoneController.text.trim(),
+      address: _addressController.text.trim().isEmpty
+          ? null
+          : _addressController.text.trim(),
+      city: selectedCity,
+      status: selectedStatus.toLowerCase(),
+      ordersCount: 0,
+      totalSpent: 0.0,
+    );
+
+    try {
+      await context.read<CustomerCubit>().addCustomer(customer);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Customer added successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to add customer: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildLabel(String text) => Text(text,
@@ -239,7 +314,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
             value: selectedCity,
             isExpanded: true,
             icon: const Icon(Icons.keyboard_arrow_down),
-            items: ['Riyadh', 'Jeddah', 'Dammam', 'Makkah', 'Madinah', 'Other']
+            items: ['Gaza', 'Rafah', 'Khan-yonis', 'Magazi', 'Brij', 'Other']
                 .map((item) => DropdownMenuItem(value: item, child: Text(item)))
                 .toList(),
             onChanged: (value) => setState(() => selectedCity = value!),

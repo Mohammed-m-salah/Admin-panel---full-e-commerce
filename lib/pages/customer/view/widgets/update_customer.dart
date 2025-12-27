@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../data/model/customer_model.dart';
+import '../../logic/cubit/customer_cubit.dart';
 
 class UpdateCustomerDialog extends StatefulWidget {
   final String id;
@@ -26,18 +29,49 @@ class _UpdateCustomerDialogState extends State<UpdateCustomerDialog> {
   late TextEditingController _nameController;
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
+
   late String selectedCity;
   late String selectedStatus;
-  final _formKey = GlobalKey<FormState>();
+
+  bool _isLoading = false;
+
+  // قائمة المدن المتاحة
+  final List<String> _cities = [
+    'Gaza',
+    'Rafah',
+    'Khan-yonis',
+    'Magazi',
+    'Brij',
+    'Other'
+  ];
 
   @override
   void initState() {
     super.initState();
+
     _nameController = TextEditingController(text: widget.name);
     _emailController = TextEditingController(text: widget.email);
     _phoneController = TextEditingController(text: widget.phone);
-    selectedCity = widget.city;
-    selectedStatus = widget.status;
+
+    // التحقق من أن المدينة موجودة في القائمة
+    // إذا لم تكن موجودة، نستخدم 'Other' كقيمة افتراضية
+    if (widget.city.isEmpty) {
+      selectedCity = 'Gaza';
+    } else if (_cities.contains(widget.city)) {
+      selectedCity = widget.city;
+    } else {
+      selectedCity = 'Other';
+    }
+
+    // التحقق من الحالة
+    final statusLower = widget.status.toLowerCase();
+    if (statusLower == 'active') {
+      selectedStatus = 'Active';
+    } else if (statusLower == 'inactive') {
+      selectedStatus = 'Inactive';
+    } else {
+      selectedStatus = 'Active';
+    }
   }
 
   @override
@@ -46,6 +80,65 @@ class _UpdateCustomerDialogState extends State<UpdateCustomerDialog> {
     _emailController.dispose();
     _phoneController.dispose();
     super.dispose();
+  }
+
+  void _updateCustomer() async {
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter customer name'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_emailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter email address'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final customer = CustomerModel(
+      id: widget.id,
+      name: _nameController.text.trim(),
+      email: _emailController.text.trim(),
+      phone: _phoneController.text.trim().isEmpty
+          ? null
+          : _phoneController.text.trim(),
+      city: selectedCity,
+      status: selectedStatus.toLowerCase(),
+    );
+
+    try {
+      await context.read<CustomerCubit>().updateCustomer(customer);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Customer updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update customer: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -133,88 +226,74 @@ class _UpdateCustomerDialogState extends State<UpdateCustomerDialog> {
                 ),
               ),
               const SizedBox(height: 24),
-              Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildLabel('Full Name'),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                        controller: _nameController,
-                        decoration: _inputDecoration(
-                            'Enter customer name', Icons.person_outline)),
-                    const SizedBox(height: 16),
-                    _buildLabel('Email Address'),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                        controller: _emailController,
-                        decoration: _inputDecoration(
-                            'example@email.com', Icons.email_outlined)),
-                    const SizedBox(height: 16),
-                    Row(
+              _buildLabel('Full Name'),
+              const SizedBox(height: 8),
+              TextFormField(
+                  controller: _nameController,
+                  decoration: _inputDecoration(
+                      'Enter customer name', Icons.person_outline)),
+              const SizedBox(height: 16),
+              _buildLabel('Email Address'),
+              const SizedBox(height: 8),
+              TextFormField(
+                  controller: _emailController,
+                  decoration: _inputDecoration(
+                      'example@email.com', Icons.email_outlined)),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildLabel('Phone Number'),
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                  controller: _phoneController,
-                                  decoration: _inputDecoration(
-                                      '+966 5X XXX XXXX',
-                                      Icons.phone_outlined)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildLabel('City'),
-                              const SizedBox(height: 8),
-                              _buildDropdown(
-                                  value: selectedCity,
-                                  items: [
-                                    'Riyadh',
-                                    'Jeddah',
-                                    'Dammam',
-                                    'Makkah',
-                                    'Madinah',
-                                    'Other'
-                                  ],
-                                  onChanged: (value) =>
-                                      setState(() => selectedCity = value!)),
-                            ],
-                          ),
-                        ),
+                        _buildLabel('Phone Number'),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                            controller: _phoneController,
+                            decoration: _inputDecoration(
+                                '+970 5X XXX XXXX', Icons.phone_outlined)),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    _buildLabel('Status'),
-                    const SizedBox(height: 8),
-                    Row(
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                            child: _buildStatusOption(
-                                'Active', Icons.check_circle_outline)),
-                        const SizedBox(width: 12),
-                        Expanded(
-                            child: _buildStatusOption(
-                                'Inactive', Icons.cancel_outlined)),
+                        _buildLabel('City'),
+                        const SizedBox(height: 8),
+                        _buildDropdown(
+                            value: selectedCity,
+                            items: _cities,
+                            onChanged: (value) =>
+                                setState(() => selectedCity = value!)),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildLabel('Status'),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                      child: _buildStatusOption(
+                          'Active', Icons.check_circle_outline)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: _buildStatusOption(
+                          'Inactive', Icons.cancel_outlined)),
+                ],
               ),
               const SizedBox(height: 24),
               Row(
                 children: [
+                  // زر الإلغاء
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed:
+                          _isLoading ? null : () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           side: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -227,14 +306,23 @@ class _UpdateCustomerDialogState extends State<UpdateCustomerDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: _isLoading ? null : _updateCustomer,
                       style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF5542F6),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8))),
-                      child: const Text('Update Customer'),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Update Customer'),
                     ),
                   ),
                 ],
@@ -251,7 +339,7 @@ class _UpdateCustomerDialogState extends State<UpdateCustomerDialog> {
           fontWeight: FontWeight.w500, color: Color(0xFF374151)));
 
   Widget _buildStatusOption(String status, IconData icon) {
-    final isSelected = selectedStatus == status;
+    final isSelected = selectedStatus.toLowerCase() == status.toLowerCase();
     final color =
         status == 'Active' ? const Color(0xFF10B981) : const Color(0xFFEF4444);
     return InkWell(
@@ -264,7 +352,8 @@ class _UpdateCustomerDialogState extends State<UpdateCustomerDialog> {
                 color: isSelected ? color : const Color(0xFFE5E7EB),
                 width: isSelected ? 2 : 1),
             borderRadius: BorderRadius.circular(8),
-            color: isSelected ? color.withOpacity(0.1) : Colors.transparent),
+            color:
+                isSelected ? color.withValues(alpha: 0.1) : Colors.transparent),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

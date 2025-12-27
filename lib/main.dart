@@ -2,6 +2,8 @@ import 'package:core_dashboard/pages/authentication/logic/cubit/auth_cubit.dart'
 import 'package:core_dashboard/pages/authentication/repositories/auth_repository.dart';
 import 'package:core_dashboard/pages/categories/data/repositories/category_repository.dart';
 import 'package:core_dashboard/pages/categories/logic/cubit/category_cubit.dart';
+import 'package:core_dashboard/pages/customer/data/repositories/customer_repository.dart';
+import 'package:core_dashboard/pages/customer/logic/cubit/customer_cubit.dart';
 import 'package:core_dashboard/pages/products/data/repositories/product_repositories.dart';
 import 'package:core_dashboard/pages/products/logic/cubit/product_cubit.dart';
 import 'package:core_dashboard/shared/navigation/routes.dart';
@@ -22,6 +24,7 @@ void main() async {
         RepositoryProvider(create: (_) => AuthRepository()),
         RepositoryProvider(create: (_) => CategoryRepository()),
         RepositoryProvider(create: (_) => ProductRepository()),
+        RepositoryProvider(create: (_) => CustomerRepository()),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -35,8 +38,15 @@ void main() async {
                   ..fetchCategories(),
           ),
           BlocProvider(
-              create: (context) => ProductCubit(
-                  context.read<ProductRepository>()..getAllProducts())),
+            create: (context) => ProductCubit(
+              context.read<ProductRepository>()..getAllProducts(),
+            ),
+          ),
+          BlocProvider(
+            create: (context) => CustomerCubit(
+              context.read<CustomerRepository>()..getAllCustomers(),
+            ),
+          ),
         ],
         child: MainApp(),
       ),

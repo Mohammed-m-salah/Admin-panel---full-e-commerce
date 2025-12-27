@@ -1,5 +1,8 @@
 import 'package:core_dashboard/pages/authentication/logic/cubit/auth_cubit.dart';
 import 'package:core_dashboard/pages/authentication/logic/cubit/auth_state.dart';
+import 'package:core_dashboard/pages/customer/data/repositories/customer_repository.dart';
+import 'package:core_dashboard/pages/customer/logic/cubit/customer_cubit.dart';
+import 'package:core_dashboard/pages/customer/view/customers_page.dart';
 import 'package:core_dashboard/pages/dashboard/widgets/theme_tabs.dart';
 import 'package:core_dashboard/responsive.dart';
 import 'package:core_dashboard/shared/constants/defaults.dart';
@@ -106,7 +109,17 @@ class Sidebar extends StatelessWidget {
                         MenuTile(
                           isSubmenu: true,
                           title: "All Customers",
-                          onPressed: () => context.go('/customers'),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => BlocProvider(
+                                create: (context) =>
+                                    CustomerCubit(CustomerRepository())
+                                      ..fetchCustomers(),
+                                child: const CustomersPage(),
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
