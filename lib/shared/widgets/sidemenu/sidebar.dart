@@ -7,6 +7,9 @@ import 'package:core_dashboard/pages/dashboard/widgets/theme_tabs.dart';
 import 'package:core_dashboard/pages/offers/data/repositories/offer_repository.dart';
 import 'package:core_dashboard/pages/offers/logic/cubit/offer_cubit.dart';
 import 'package:core_dashboard/pages/offers/view/offers_page.dart';
+import 'package:core_dashboard/pages/orders/view/orders_page.dart';
+import 'package:core_dashboard/pages/orders/data/repositories/order_repository.dart';
+import 'package:core_dashboard/pages/orders/logic/cubit/order_cubit.dart';
 import 'package:core_dashboard/responsive.dart';
 import 'package:core_dashboard/shared/constants/defaults.dart';
 import 'package:core_dashboard/shared/constants/ghaps.dart';
@@ -139,6 +142,23 @@ class Sidebar extends StatelessWidget {
                             create: (context) =>
                                 OfferCubit(OfferRepository())..fetchOffers(),
                             child: const OffersPage(),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Orders Management
+                    MenuTile(
+                      title: "Orders",
+                      activeIconSrc: "assets/icons/cart_filled.svg",
+                      inactiveIconSrc: "assets/icons/cart_light.svg",
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => BlocProvider(
+                            create: (context) =>
+                                OrderCubit(OrderRepository())..fetchOrders(),
+                            child: const OrdersPage(),
                           ),
                         ),
                       ),

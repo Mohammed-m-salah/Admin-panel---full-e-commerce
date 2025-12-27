@@ -9,6 +9,9 @@ import 'package:core_dashboard/pages/entry_point.dart';
 import 'package:core_dashboard/pages/offers/view/offers_page.dart';
 import 'package:core_dashboard/pages/offers/data/repositories/offer_repository.dart';
 import 'package:core_dashboard/pages/offers/logic/cubit/offer_cubit.dart';
+import 'package:core_dashboard/pages/orders/view/orders_page.dart';
+import 'package:core_dashboard/pages/orders/data/repositories/order_repository.dart';
+import 'package:core_dashboard/pages/orders/logic/cubit/order_cubit.dart';
 import 'package:core_dashboard/pages/products/data/repositories/product_repositories.dart';
 import 'package:core_dashboard/pages/products/logic/cubit/product_cubit.dart';
 import 'package:core_dashboard/pages/products/view/products_page.dart';
@@ -62,6 +65,13 @@ final routerConfig = GoRouter(
       builder: (context, state) => BlocProvider(
         create: (context) => OfferCubit(OfferRepository())..fetchOffers(),
         child: const OffersPage(),
+      ),
+    ),
+    GoRoute(
+      path: '/orders',
+      builder: (context, state) => BlocProvider(
+        create: (context) => OrderCubit(OrderRepository())..fetchOrders(),
+        child: const OrdersPage(),
       ),
     ),
 
