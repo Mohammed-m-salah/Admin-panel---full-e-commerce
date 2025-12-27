@@ -4,6 +4,9 @@ import 'package:core_dashboard/pages/customer/data/repositories/customer_reposit
 import 'package:core_dashboard/pages/customer/logic/cubit/customer_cubit.dart';
 import 'package:core_dashboard/pages/customer/view/customers_page.dart';
 import 'package:core_dashboard/pages/dashboard/widgets/theme_tabs.dart';
+import 'package:core_dashboard/pages/offers/data/repositories/offer_repository.dart';
+import 'package:core_dashboard/pages/offers/logic/cubit/offer_cubit.dart';
+import 'package:core_dashboard/pages/offers/view/offers_page.dart';
 import 'package:core_dashboard/responsive.dart';
 import 'package:core_dashboard/shared/constants/defaults.dart';
 import 'package:core_dashboard/shared/constants/ghaps.dart';
@@ -123,6 +126,24 @@ class Sidebar extends StatelessWidget {
                         ),
                       ],
                     ),
+
+                    // Offers & Discounts
+                    MenuTile(
+                      title: "Offers & Discounts",
+                      activeIconSrc: "assets/icons/gift_filled.svg",
+                      inactiveIconSrc: "assets/icons/gift_light.svg",
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => BlocProvider(
+                            create: (context) =>
+                                OfferCubit(OfferRepository())..fetchOffers(),
+                            child: const OffersPage(),
+                          ),
+                        ),
+                      ),
+                    ),
+
                     MenuTile(
                       title: "Shop",
                       activeIconSrc: "assets/icons/store_light.svg",

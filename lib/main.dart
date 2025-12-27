@@ -4,6 +4,7 @@ import 'package:core_dashboard/pages/categories/data/repositories/category_repos
 import 'package:core_dashboard/pages/categories/logic/cubit/category_cubit.dart';
 import 'package:core_dashboard/pages/customer/data/repositories/customer_repository.dart';
 import 'package:core_dashboard/pages/customer/logic/cubit/customer_cubit.dart';
+import 'package:core_dashboard/pages/offers/data/repositories/offer_repository.dart';
 import 'package:core_dashboard/pages/products/data/repositories/product_repositories.dart';
 import 'package:core_dashboard/pages/products/logic/cubit/product_cubit.dart';
 import 'package:core_dashboard/shared/navigation/routes.dart';
@@ -25,6 +26,7 @@ void main() async {
         RepositoryProvider(create: (_) => CategoryRepository()),
         RepositoryProvider(create: (_) => ProductRepository()),
         RepositoryProvider(create: (_) => CustomerRepository()),
+        RepositoryProvider(create: (_) => OfferRepository()),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -45,6 +47,12 @@ void main() async {
           BlocProvider(
             create: (context) => CustomerCubit(
               context.read<CustomerRepository>()..getAllCustomers(),
+            ),
+          ),
+          BlocProvider(
+            create: (context) => CustomerCubit(
+              (context.read<OfferRepository>()..getAllOffers())
+                  as CustomerRepository,
             ),
           ),
         ],

@@ -15,11 +15,44 @@ class CustomersPage extends StatefulWidget {
 }
 
 class _CustomersPageState extends State<CustomersPage> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _statusFilter = 'All';
+
   @override
   void initState() {
     super.initState();
-    // جلب العملاء عند فتح الصفحة
     context.read<CustomerCubit>().fetchCustomers();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<CustomerModel> _filterCustomers(List<CustomerModel> customers) {
+    return customers.where((customer) {
+      bool matchesSearch = true;
+      if (_searchQuery.isNotEmpty) {
+        final query = _searchQuery.toLowerCase();
+        final name = customer.name.toLowerCase();
+        final email = customer.email.toLowerCase();
+        final phone = (customer.phone ?? '').toLowerCase();
+
+        matchesSearch = name.contains(query) ||
+            email.contains(query) ||
+            phone.contains(query);
+      }
+
+      bool matchesStatus = true;
+      if (_statusFilter != 'All') {
+        matchesStatus =
+            customer.status?.toLowerCase() == _statusFilter.toLowerCase();
+      }
+
+      return matchesSearch && matchesStatus;
+    }).toList();
   }
 
   @override
@@ -50,6 +83,11 @@ class _CustomersPageState extends State<CustomersPage> {
         if (state is CustomerLoaded) {
           customers = state.customers;
         }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // تطبيق الفلترة على القائمة
+        // ═══════════════════════════════════════════════════════════════════
+        final filteredCustomers = _filterCustomers(customers);
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8F9FA),
@@ -100,17 +138,35 @@ class _CustomersPageState extends State<CustomersPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // حقل البحث والفلترة
                 Row(
                   children: [
-                    // حقل البحث
                     Expanded(
                       flex: 3,
                       child: TextField(
+                        controller: _searchController,
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                        },
                         decoration: InputDecoration(
-                          hintText: 'Search customers by name or email...',
+                          hintText:
+                              'Search customers by name, email or phone...',
                           prefixIcon: const Icon(Icons.search,
                               color: Color(0xFF6B7280)),
+                          // زر مسح البحث
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear,
+                                      color: Color(0xFF6B7280)),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchController.clear();
+                                      _searchQuery = '';
+                                    });
+                                  },
+                                )
+                              : null,
                           filled: true,
                           fillColor: Colors.white,
                           border: OutlineInputBorder(
@@ -122,6 +178,11 @@ class _CustomersPageState extends State<CustomersPage> {
                             borderRadius: BorderRadius.circular(8),
                             borderSide:
                                 const BorderSide(color: Color(0xFFE5E7EB)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                                color: Color(0xFF5542F6), width: 2),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
@@ -162,19 +223,21 @@ class _CustomersPageState extends State<CustomersPage> {
                 ),
                 const SizedBox(height: 24),
 
-                // إحصائيات سريعة - محسوبة من البيانات الحقيقية
+                // ═══════════════════════════════════════════════════════════
+                // إحصائيات سريعة - تتغير حسب الفلترة
+                // ═══════════════════════════════════════════════════════════
                 Row(
                   children: [
                     _buildStatCard(
                       'Total Customers',
-                      customers.length.toString(),
+                      filteredCustomers.length.toString(),
                       Icons.people_outline,
                       const Color(0xFF5542F6),
                     ),
                     const SizedBox(width: 16),
                     _buildStatCard(
                       'Active Customers',
-                      customers
+                      filteredCustomers
                           .where((c) => c.status?.toLowerCase() == 'active')
                           .length
                           .toString(),
@@ -184,7 +247,7 @@ class _CustomersPageState extends State<CustomersPage> {
                     const SizedBox(width: 16),
                     _buildStatCard(
                       'Total Orders',
-                      customers
+                      filteredCustomers
                           .fold<int>(0, (sum, c) => sum + (c.ordersCount ?? 0))
                           .toString(),
                       Icons.shopping_bag_outlined,
@@ -193,7 +256,7 @@ class _CustomersPageState extends State<CustomersPage> {
                     const SizedBox(width: 16),
                     _buildStatCard(
                       'Total Revenue',
-                      '\$${customers.fold<double>(0, (sum, c) => sum + (c.totalSpent ?? 0)).toStringAsFixed(2)}',
+                      '\$${filteredCustomers.fold<double>(0, (sum, c) => sum + (c.totalSpent ?? 0)).toStringAsFixed(2)}',
                       Icons.attach_money,
                       const Color(0xFFEF4444),
                     ),
@@ -333,9 +396,9 @@ class _CustomersPageState extends State<CustomersPage> {
                         ),
                         const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
-                        // محتوى الجدول - يتغير حسب الحالة
+                        // محتوى الجدول - يتغير حسب الحالة والفلترة
                         Expanded(
-                          child: _buildTableContent(state, customers),
+                          child: _buildTableContent(state, filteredCustomers),
                         ),
                       ],
                     ),
@@ -349,10 +412,8 @@ class _CustomersPageState extends State<CustomersPage> {
     );
   }
 
-  // دالة لبناء محتوى الجدول حسب الحالة
   Widget _buildTableContent(
       CustomerState state, List<CustomerModel> customers) {
-    // حالة التحميل
     if (state is CustomerLoading) {
       return const Center(
         child: CircularProgressIndicator(
@@ -361,7 +422,6 @@ class _CustomersPageState extends State<CustomersPage> {
       );
     }
 
-    // حالة الخطأ
     if (state is CustomerError) {
       return Center(
         child: Column(
@@ -383,24 +443,50 @@ class _CustomersPageState extends State<CustomersPage> {
       );
     }
 
-    // حالة عدم وجود بيانات
+    // ─────────────────────────────────────────────────────────────────────────
+    // حالة عدم وجود نتائج
+    // ─────────────────────────────────────────────────────────────────────────
     if (customers.isEmpty) {
-      return const Center(
+      // التحقق إذا كان بسبب البحث أم لا يوجد عملاء أصلاً
+      final bool isFiltering = _searchQuery.isNotEmpty || _statusFilter != 'All';
+
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.people_outline, size: 48, color: Color(0xFF6B7280)),
-            SizedBox(height: 16),
-            Text(
-              'لا يوجد عملاء حتى الآن',
-              style: TextStyle(color: Color(0xFF6B7280)),
+            Icon(
+              isFiltering ? Icons.search_off : Icons.people_outline,
+              size: 48,
+              color: const Color(0xFF6B7280),
             ),
+            const SizedBox(height: 16),
+            Text(
+              isFiltering
+                  ? 'No customers match your search'
+                  : 'No customers yet',
+              style: const TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 16,
+              ),
+            ),
+            if (isFiltering) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _searchController.clear();
+                    _searchQuery = '';
+                    _statusFilter = 'All';
+                  });
+                },
+                child: const Text('Clear filters'),
+              ),
+            ],
           ],
         ),
       );
     }
 
-    // حالة عرض البيانات
     return ListView.builder(
       itemCount: customers.length,
       itemBuilder: (context, index) {
@@ -648,29 +734,16 @@ class CustomerRow extends StatelessWidget {
                         ),
                       ),
                     );
-                    //      final cubit = context.read<CustomerCubit>();
-                    // showDialog(
-                    //   context: context,
-                    //   builder: (dialogContext) => BlocProvider.value(
-                    //     value: cubit,
-                    //     child: const AddCustomerDialog(),
-                    //   ),
-                    // );
                   },
                   icon: const Icon(Icons.edit_outlined),
                   color: const Color(0xFF5542F6),
                   tooltip: 'Edit',
                 ),
-                // ═══════════════════════════════════════════════════════════
-                // زر الحذف - يفتح نافذة تأكيد الحذف
-                // ═══════════════════════════════════════════════════════════
                 IconButton(
                   onPressed: () {
-                    // الحصول على الـ Cubit قبل فتح الـ Dialog
                     final cubit = context.read<CustomerCubit>();
                     showDialog(
                       context: context,
-                      // تمرير الـ Cubit للـ Dialog باستخدام BlocProvider.value
                       builder: (dialogContext) => BlocProvider.value(
                         value: cubit,
                         child: DeleteCustomerDialog(
