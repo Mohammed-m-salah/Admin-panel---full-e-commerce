@@ -1,15 +1,6 @@
 import 'package:core_dashboard/pages/authentication/logic/cubit/auth_cubit.dart';
 import 'package:core_dashboard/pages/authentication/logic/cubit/auth_state.dart';
-import 'package:core_dashboard/pages/customer/data/repositories/customer_repository.dart';
-import 'package:core_dashboard/pages/customer/logic/cubit/customer_cubit.dart';
-import 'package:core_dashboard/pages/customer/view/customers_page.dart';
 import 'package:core_dashboard/pages/dashboard/widgets/theme_tabs.dart';
-import 'package:core_dashboard/pages/offers/data/repositories/offer_repository.dart';
-import 'package:core_dashboard/pages/offers/logic/cubit/offer_cubit.dart';
-import 'package:core_dashboard/pages/offers/view/offers_page.dart';
-import 'package:core_dashboard/pages/orders/view/orders_page.dart';
-import 'package:core_dashboard/pages/orders/data/repositories/order_repository.dart';
-import 'package:core_dashboard/pages/orders/logic/cubit/order_cubit.dart';
 import 'package:core_dashboard/responsive.dart';
 import 'package:core_dashboard/shared/constants/defaults.dart';
 import 'package:core_dashboard/shared/constants/ghaps.dart';
@@ -115,17 +106,7 @@ class Sidebar extends StatelessWidget {
                         MenuTile(
                           isSubmenu: true,
                           title: "All Customers",
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => BlocProvider(
-                                create: (context) =>
-                                    CustomerCubit(CustomerRepository())
-                                      ..fetchCustomers(),
-                                child: const CustomersPage(),
-                              ),
-                            ),
-                          ),
+                          onPressed: () => context.go('/customers'),
                         ),
                       ],
                     ),
@@ -135,16 +116,7 @@ class Sidebar extends StatelessWidget {
                       title: "Offers & Discounts",
                       activeIconSrc: "assets/icons/gift_filled.svg",
                       inactiveIconSrc: "assets/icons/gift_light.svg",
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => BlocProvider(
-                            create: (context) =>
-                                OfferCubit(OfferRepository())..fetchOffers(),
-                            child: const OffersPage(),
-                          ),
-                        ),
-                      ),
+                      onPressed: () => context.go('/offers'),
                     ),
 
                     // Orders Management
@@ -152,16 +124,15 @@ class Sidebar extends StatelessWidget {
                       title: "Orders",
                       activeIconSrc: "assets/icons/cart_filled.svg",
                       inactiveIconSrc: "assets/icons/cart_light.svg",
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => BlocProvider(
-                            create: (context) =>
-                                OrderCubit(OrderRepository())..fetchOrders(),
-                            child: const OrdersPage(),
-                          ),
-                        ),
-                      ),
+                      onPressed: () => context.go('/orders'),
+                    ),
+
+                    // Inventory Management
+                    MenuTile(
+                      title: "Inventory",
+                      activeIconSrc: "assets/icons/archive_filled.svg",
+                      inactiveIconSrc: "assets/icons/archive_light.svg",
+                      onPressed: () => context.go('/inventory'),
                     ),
 
                     MenuTile(

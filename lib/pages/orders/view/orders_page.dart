@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../data/model/order_model.dart';
 import '../logic/cubit/order_cubit.dart';
 import '../logic/cubit/order_state.dart';
@@ -106,6 +107,26 @@ class _OrdersPageState extends State<OrdersPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
+        // Back Button
+        Container(
+          margin: const EdgeInsets.only(right: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: IconButton(
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/entry-point');
+              }
+            },
+            icon: const Icon(Icons.arrow_back_rounded),
+            color: const Color(0xFF6B7280),
+            tooltip: 'Back',
+          ),
+        ),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

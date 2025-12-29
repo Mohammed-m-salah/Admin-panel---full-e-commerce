@@ -4,8 +4,11 @@ import 'package:core_dashboard/pages/categories/categories_page.dart';
 import 'package:core_dashboard/pages/categories/data/repositories/category_repository.dart';
 import 'package:core_dashboard/pages/categories/logic/cubit/category_cubit.dart';
 import 'package:core_dashboard/pages/customer/view/customers_page.dart';
+import 'package:core_dashboard/pages/customer/data/repositories/customer_repository.dart';
+import 'package:core_dashboard/pages/customer/logic/cubit/customer_cubit.dart';
 import 'package:core_dashboard/pages/dashboard/dashboard_page.dart';
 import 'package:core_dashboard/pages/entry_point.dart';
+import 'package:core_dashboard/pages/inventory/view/inventory_page.dart';
 import 'package:core_dashboard/pages/offers/view/offers_page.dart';
 import 'package:core_dashboard/pages/offers/data/repositories/offer_repository.dart';
 import 'package:core_dashboard/pages/offers/logic/cubit/offer_cubit.dart';
@@ -58,7 +61,10 @@ final routerConfig = GoRouter(
     ),
     GoRoute(
       path: '/customers',
-      builder: (context, state) => const CustomersPage(),
+      builder: (context, state) => BlocProvider(
+        create: (context) => CustomerCubit(CustomerRepository())..fetchCustomers(),
+        child: const CustomersPage(),
+      ),
     ),
     GoRoute(
       path: '/offers',
@@ -73,6 +79,10 @@ final routerConfig = GoRouter(
         create: (context) => OrderCubit(OrderRepository())..fetchOrders(),
         child: const OrdersPage(),
       ),
+    ),
+    GoRoute(
+      path: '/inventory',
+      builder: (context, state) => const InventoryPage(),
     ),
 
     // GoRoute(
