@@ -1,5 +1,10 @@
+import 'package:core_dashboard/pages/products/logic/cubit/product_cubit.dart';
+import 'package:core_dashboard/pages/products/logic/cubit/product_state.dart';
+import 'package:core_dashboard/pages/products/data/model/product_model.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:core_dashboard/pages/categories/logic/cubit/category_cubit.dart';
+import 'package:core_dashboard/pages/categories/logic/cubit/category_state.dart';
 
 class InventoryPage extends StatefulWidget {
   const InventoryPage({super.key});
@@ -18,33 +23,18 @@ class _InventoryPageState extends State<InventoryPage>
   final TextEditingController _reasonController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
-  // Categories Data
-  final List<CategoryData> _categories = [
-    CategoryData(name: 'All', icon: Icons.apps_rounded, count: 48, color: const Color(0xFF6366F1)),
-    CategoryData(name: 'Electronics', icon: Icons.devices_rounded, count: 15, color: const Color(0xFF0EA5E9)),
-    CategoryData(name: 'Clothing', icon: Icons.checkroom_rounded, count: 12, color: const Color(0xFFEC4899)),
-    CategoryData(name: 'Shoes', icon: Icons.directions_walk_rounded, count: 8, color: const Color(0xFFF59E0B)),
-    CategoryData(name: 'Accessories', icon: Icons.watch_rounded, count: 7, color: const Color(0xFF8B5CF6)),
-    CategoryData(name: 'Home & Garden', icon: Icons.home_rounded, count: 6, color: const Color(0xFF10B981)),
+  // ألوان للفئات
+  final List<Color> _categoryColors = [
+    const Color(0xFF0EA5E9),
+    const Color(0xFFEC4899),
+    const Color(0xFFF59E0B),
+    const Color(0xFF8B5CF6),
+    const Color(0xFF10B981),
+    const Color(0xFFEF4444),
+    const Color(0xFF14B8A6),
   ];
-
-  // Products Data
-  List<ProductStock> _products = [
-    ProductStock(id: '1', name: 'iPhone 15 Pro Max', sku: 'APL-IP15PM-256', category: 'Electronics', quantity: 45, minStock: 10, price: 1199.99, status: 'in_stock'),
-    ProductStock(id: '2', name: 'Samsung Galaxy S24', sku: 'SAM-GS24-128', category: 'Electronics', quantity: 8, minStock: 15, price: 899.99, status: 'low_stock'),
-    ProductStock(id: '3', name: 'Nike Air Max 270', sku: 'NK-AM270-BLK', category: 'Shoes', quantity: 0, minStock: 5, price: 150.00, status: 'out_of_stock'),
-    ProductStock(id: '4', name: 'Levi\'s 501 Jeans', sku: 'LV-501-32-BLU', category: 'Clothing', quantity: 25, minStock: 10, price: 79.99, status: 'in_stock'),
-    ProductStock(id: '5', name: 'Apple Watch Series 9', sku: 'APL-AWS9-45', category: 'Accessories', quantity: 12, minStock: 8, price: 399.99, status: 'in_stock'),
-    ProductStock(id: '6', name: 'Sony WH-1000XM5', sku: 'SNY-WH1KXM5', category: 'Electronics', quantity: 3, minStock: 5, price: 349.99, status: 'low_stock'),
-  ];
-
-  // Movements Data
-  List<StockMovement> _movements = [
-    StockMovement(date: '2024-01-15', time: '14:30', product: 'iPhone 15 Pro Max', type: 'in', quantity: 20, before: 25, after: 45, reason: 'New shipment arrived'),
-    StockMovement(date: '2024-01-15', time: '11:20', product: 'Samsung Galaxy S24', type: 'out', quantity: 5, before: 13, after: 8, reason: 'Customer order #1234'),
-    StockMovement(date: '2024-01-14', time: '16:45', product: 'Nike Air Max 270', type: 'out', quantity: 3, before: 3, after: 0, reason: 'Customer order #1230'),
-    StockMovement(date: '2024-01-14', time: '09:15', product: 'Apple Watch Series 9', type: 'adjustment', quantity: 2, before: 10, after: 12, reason: 'Inventory audit correction'),
-  ];
+  final List<ProductStock> _products = [];
+  final List<StockMovement> _movements = [];
 
   @override
   void initState() {
@@ -62,17 +52,26 @@ class _InventoryPageState extends State<InventoryPage>
     super.dispose();
   }
 
-  List<ProductStock> get _filteredProducts {
-    return _products.where((p) {
-      final matchCategory =
-          _selectedCategory == 'All' || p.category == _selectedCategory;
+  // فلترة المنتجات من Supabase
+  List<ProductModel> _filterProducts(List<ProductModel> products) {
+    return products.where((p) {
+      // مقارنة الفئة بدون حساسية لحالة الأحرف
+      final matchCategory = _selectedCategory == 'All' ||
+          (p.category?.toLowerCase() == _selectedCategory.toLowerCase());
       final matchStatus = _selectedStatus == 'All' ||
-          p.status == _selectedStatus.toLowerCase().replaceAll(' ', '_');
+          _getStockStatus(p.stock ?? 0) ==
+              _selectedStatus.toLowerCase().replaceAll(' ', '_');
       final matchSearch = _searchController.text.isEmpty ||
-          p.name.toLowerCase().contains(_searchController.text.toLowerCase()) ||
-          p.sku.toLowerCase().contains(_searchController.text.toLowerCase());
+          p.name.toLowerCase().contains(_searchController.text.toLowerCase());
       return matchCategory && matchStatus && matchSearch;
     }).toList();
+  }
+
+  // تحديد حالة المخزون
+  String _getStockStatus(int stock) {
+    if (stock <= 0) return 'out_of_stock';
+    if (stock <= 10) return 'low_stock';
+    return 'in_stock';
   }
 
   @override
@@ -108,9 +107,6 @@ class _InventoryPageState extends State<InventoryPage>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════════
-  // Categories Sidebar
-  // ══════════════════════════════════════════════════════════════════════════════
   Widget _buildCategoriesSidebar() {
     return Container(
       width: 260,
@@ -172,124 +168,225 @@ class _InventoryPageState extends State<InventoryPage>
             ),
           ),
 
-          // Categories List
+          // Categories List - من Supabase
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: _categories.length,
-              itemBuilder: (context, index) {
-                final category = _categories[index];
-                final isSelected = _selectedCategory == category.name;
+            child: BlocBuilder<CategoryCubit, CategoryState>(
+              builder: (context, state) {
+                if (state is CategoryLoading) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF6366F1),
+                    ),
+                  );
+                }
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () =>
-                          setState(() => _selectedCategory = category.name),
-                      borderRadius: BorderRadius.circular(12),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? category.color.withOpacity(0.1)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected
-                                ? category.color
-                                : Colors.transparent,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Row(
+                if (state is CategoryError) {
+                  return SingleChildScrollView(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? category.color
-                                    : const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                category.icon,
-                                color: isSelected
-                                    ? Colors.white
-                                    : const Color(0xFF64748B),
-                                size: 20,
-                              ),
+                            const Icon(Icons.error_outline,
+                                color: Colors.red, size: 32),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Error loading',
+                              style: TextStyle(
+                                  color: Colors.grey[600], fontSize: 12),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                category.name,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
-                                  color: isSelected
-                                      ? category.color
-                                      : const Color(0xFF334155),
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? category.color
-                                    : const Color(0xFFE2E8F0),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                '${category.count}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isSelected
-                                      ? Colors.white
-                                      : const Color(0xFF64748B),
-                                ),
-                              ),
+                            TextButton(
+                              onPressed: () {
+                                context.read<CategoryCubit>().fetchCategories();
+                              },
+                              child: const Text('Retry'),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ),
-                );
+                  );
+                }
+
+                if (state is CategoryLoaded) {
+                  final categories = state.categories;
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: categories.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        final isSelected = _selectedCategory == 'All';
+                        return _buildCategoryItem(
+                          name: 'All',
+                          color: const Color(0xFF6366F1),
+                          isSelected: isSelected,
+                          onTap: () =>
+                              setState(() => _selectedCategory = 'All'),
+                        );
+                      }
+
+                      final category = categories[index - 1];
+                      final color =
+                          _categoryColors[(index - 1) % _categoryColors.length];
+                      final isSelected = _selectedCategory == category.name;
+
+                      return _buildCategoryItem(
+                        name: category.name,
+                        color: color,
+                        isSelected: isSelected,
+                        onTap: () =>
+                            setState(() => _selectedCategory = category.name),
+                      );
+                    },
+                  );
+                }
+
+                return const Center(child: Text('Loading...'));
               },
             ),
           ),
 
-          // Quick Stats
-          Container(
-            margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.all(16),
+          // Quick Stats - من Supabase
+          BlocBuilder<ProductCubit, ProductState>(
+            builder: (context, state) {
+              int total = 0;
+              int inStock = 0;
+              int lowStock = 0;
+              int outOfStock = 0;
+
+              if (state is ProductLoaded) {
+                final products = state.products;
+                total = products.length;
+                inStock = products
+                    .where((p) => _getStockStatus(p.stock ?? 0) == 'in_stock')
+                    .length;
+                lowStock = products
+                    .where((p) => _getStockStatus(p.stock ?? 0) == 'low_stock')
+                    .length;
+                outOfStock = products
+                    .where(
+                        (p) => _getStockStatus(p.stock ?? 0) == 'out_of_stock')
+                    .length;
+              }
+
+              return Container(
+                margin: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: [
+                    // Total Items - قابل للنقر
+                    _buildClickableStatCard(
+                      label: 'Total Items',
+                      value: '$total',
+                      icon: Icons.inventory_2_rounded,
+                      color: const Color(0xFF6366F1),
+                      isSelected: _selectedStatus == 'All',
+                      onTap: () => setState(() => _selectedStatus = 'All'),
+                    ),
+                    const SizedBox(height: 8),
+                    // In Stock
+                    _buildClickableStatCard(
+                      label: 'In Stock',
+                      value: '$inStock',
+                      icon: Icons.check_circle_rounded,
+                      color: const Color(0xFF10B981),
+                      isSelected: _selectedStatus == 'In Stock',
+                      onTap: () => setState(() => _selectedStatus = 'In Stock'),
+                    ),
+                    const SizedBox(height: 8),
+                    // Low Stock
+                    _buildClickableStatCard(
+                      label: 'Low Stock',
+                      value: '$lowStock',
+                      icon: Icons.warning_rounded,
+                      color: const Color(0xFFF59E0B),
+                      isSelected: _selectedStatus == 'Low Stock',
+                      onTap: () =>
+                          setState(() => _selectedStatus = 'Low Stock'),
+                    ),
+                    const SizedBox(height: 8),
+                    // Out of Stock
+                    _buildClickableStatCard(
+                      label: 'Out of Stock',
+                      value: '$outOfStock',
+                      icon: Icons.error_rounded,
+                      color: const Color(0xFFEF4444),
+                      isSelected: _selectedStatus == 'Out of Stock',
+                      onTap: () =>
+                          setState(() => _selectedStatus = 'Out of Stock'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Category Item Widget
+  Widget _buildCategoryItem({
+    required String name,
+    required Color color,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(
+                color: isSelected ? color : Colors.transparent,
+                width: 1.5,
+              ),
             ),
-            child: Column(
+            child: Row(
               children: [
-                _buildQuickStat('Total Items', '48', Icons.inventory_2_rounded,
-                    const Color(0xFF6366F1)),
-                const SizedBox(height: 12),
-                _buildQuickStat('Low Stock', '5', Icons.warning_rounded,
-                    const Color(0xFFF59E0B)),
-                const SizedBox(height: 12),
-                _buildQuickStat('Out of Stock', '3', Icons.error_rounded,
-                    const Color(0xFFEF4444)),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? color : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    name == 'All' ? Icons.apps_rounded : Icons.category_rounded,
+                    color: isSelected ? Colors.white : const Color(0xFF64748B),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color: isSelected ? color : const Color(0xFF334155),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -321,6 +418,82 @@ class _InventoryPageState extends State<InventoryPage>
     );
   }
 
+  // Clickable Stat Card - بطاقة إحصائية قابلة للنقر
+  Widget _buildClickableStatCard({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withOpacity(0.1) : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? color : const Color(0xFFE2E8F0),
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              // الأيقونة
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isSelected ? color : color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  size: 16,
+                  color: isSelected ? Colors.white : color,
+                ),
+              ),
+              const SizedBox(width: 10),
+              // النص
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected ? color : const Color(0xFF64748B),
+                  ),
+                ),
+              ),
+              // القيمة
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isSelected ? color : color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.white : color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // Header
   Widget _buildHeader() {
     return Container(
@@ -329,25 +502,7 @@ class _InventoryPageState extends State<InventoryPage>
       child: Row(
         children: [
           // Back Button
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: IconButton(
-              onPressed: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/entry-point');
-                }
-              },
-              icon: const Icon(Icons.arrow_back_rounded),
-              color: const Color(0xFF64748B),
-              tooltip: 'Back',
-            ),
-          ),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -405,8 +560,6 @@ class _InventoryPageState extends State<InventoryPage>
           ),
           _buildActionButton(Icons.file_download_outlined, 'Export', null),
           const SizedBox(width: 12),
-          _buildActionButton(Icons.refresh_rounded, 'Refresh', null),
-          const SizedBox(width: 12),
           Container(
             decoration: BoxDecoration(
               gradient: const LinearGradient(
@@ -455,48 +608,125 @@ class _InventoryPageState extends State<InventoryPage>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════════
-  // Stats Cards
-  // ══════════════════════════════════════════════════════════════════════════════
   Widget _buildStatsCards() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: Row(
-        children: [
-          Expanded(
-              child: _buildStatCard(
+    // نستخدم BlocBuilder للحصول على البيانات الحقيقية من Supabase
+    return BlocBuilder<ProductCubit, ProductState>(
+      builder: (context, state) {
+        // القيم الافتراضية
+        int total = 0;
+        int inStock = 0;
+        int lowStock = 0;
+        int outOfStock = 0;
+        double totalValue = 0.0;
+
+        // إذا تم تحميل البيانات بنجاح
+        if (state is ProductLoaded) {
+          final products = state.products;
+
+          // 1. Total Products = عدد كل المنتجات
+          total = products.length;
+
+          // 2. حساب كل حالة
+          for (var product in products) {
+            final stock = product.stock ?? 0;
+            final price = product.price ?? 0.0;
+
+            // حساب القيمة الإجمالية = الكمية × السعر
+            totalValue += stock * price;
+
+            // تصنيف المنتج حسب المخزون
+            final status = _getStockStatus(stock);
+            if (status == 'in_stock') {
+              inStock++;
+            } else if (status == 'low_stock') {
+              lowStock++;
+            } else {
+              outOfStock++;
+            }
+          }
+        }
+
+        // حساب النسبة المئوية للمنتجات المتوفرة
+        final availablePercent =
+            total > 0 ? ((inStock / total) * 100).toStringAsFixed(0) : '0';
+
+        return Container(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Row(
+            children: [
+              // 1. Total Products - إجمالي المنتجات
+              Expanded(
+                child: _buildStatCard(
                   'Total Products',
-                  '48',
+                  '$total',
                   Icons.inventory_2_rounded,
                   const Color(0xFF6366F1),
-                  '+5 this week')),
-          const SizedBox(width: 16),
-          Expanded(
-              child: _buildStatCard(
+                  'All inventory items',
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // 2. In Stock - المنتجات المتوفرة (stock > 10)
+              Expanded(
+                child: _buildStatCard(
                   'In Stock',
-                  '40',
+                  '$inStock',
                   Icons.check_circle_rounded,
                   const Color(0xFF10B981),
-                  '83% available')),
-          const SizedBox(width: 16),
-          Expanded(
-              child: _buildStatCard('Low Stock', '5', Icons.warning_rounded,
-                  const Color(0xFFF59E0B), 'Needs reorder')),
-          const SizedBox(width: 16),
-          Expanded(
-              child: _buildStatCard('Out of Stock', '3', Icons.error_rounded,
-                  const Color(0xFFEF4444), 'Action needed')),
-          const SizedBox(width: 16),
-          Expanded(
-              child: _buildStatCard(
+                  '$availablePercent% available',
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // 3. Low Stock - مخزون منخفض (stock <= 10 && stock > 0)
+              Expanded(
+                child: _buildStatCard(
+                  'Low Stock',
+                  '$lowStock',
+                  Icons.warning_rounded,
+                  const Color(0xFFF59E0B),
+                  lowStock > 0 ? 'Needs reorder' : 'All good',
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // 4. Out of Stock - نفد المخزون (stock <= 0)
+              Expanded(
+                child: _buildStatCard(
+                  'Out of Stock',
+                  '$outOfStock',
+                  Icons.error_rounded,
+                  const Color(0xFFEF4444),
+                  outOfStock > 0 ? 'Action needed' : 'None',
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // 5. Total Value - القيمة الإجمالية للمخزون
+              Expanded(
+                child: _buildStatCard(
                   'Total Value',
-                  '\$156,420',
+                  '\$${_formatNumber(totalValue)}',
                   Icons.attach_money_rounded,
                   const Color(0xFF0EA5E9),
-                  '+12.5% growth')),
-        ],
-      ),
+                  'Stock value',
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  // تنسيق الأرقام الكبيرة (مثل 156420 → 156,420)
+  String _formatNumber(double number) {
+    if (number >= 1000000) {
+      return '${(number / 1000000).toStringAsFixed(1)}M';
+    } else if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
+    }
+    return number.toStringAsFixed(2);
   }
 
   Widget _buildStatCard(
@@ -565,9 +795,6 @@ class _InventoryPageState extends State<InventoryPage>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════════
-  // Tab Bar
-  // ══════════════════════════════════════════════════════════════════════════════
   Widget _buildTabBar() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -611,9 +838,6 @@ class _InventoryPageState extends State<InventoryPage>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════════
-  // Stock Levels Tab
-  // ══════════════════════════════════════════════════════════════════════════════
   Widget _buildStockLevelsTab() {
     return Container(
       margin: const EdgeInsets.all(24),
@@ -744,24 +968,69 @@ class _InventoryPageState extends State<InventoryPage>
           ),
           const Divider(height: 1),
 
-          // Products List
+          // Products List - من Supabase
           Expanded(
-            child: _filteredProducts.isEmpty
-                ? _buildEmptyState()
-                : ListView.separated(
-                    itemCount: _filteredProducts.length,
+            child: BlocBuilder<ProductCubit, ProductState>(
+              builder: (context, state) {
+                if (state is ProductLoading) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+                  );
+                }
+
+                if (state is ProductError) {
+                  return SingleChildScrollView(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline,
+                                color: Colors.red, size: 48),
+                            const SizedBox(height: 16),
+                            Text('Error: ${state.message}'),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () =>
+                                  context.read<ProductCubit>().fetchProducts(),
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                if (state is ProductLoaded) {
+                  final filteredProducts = _filterProducts(state.products);
+                  if (filteredProducts.isEmpty) {
+                    return _buildEmptyState();
+                  }
+                  return ListView.separated(
+                    itemCount: filteredProducts.length,
                     separatorBuilder: (_, __) =>
                         const Divider(height: 1, color: Color(0xFFE2E8F0)),
                     itemBuilder: (context, index) =>
-                        _buildProductRow(_filteredProducts[index]),
-                  ),
+                        _buildProductRow(filteredProducts[index]),
+                  );
+                }
+
+                return const Center(child: Text('Loading products...'));
+              },
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildProductRow(ProductStock product) {
+  Widget _buildProductRow(ProductModel product) {
+    final stock = product.stock ?? 0;
+    final status = _getStockStatus(stock);
+    final price = product.price ?? 0.0;
+
     return InkWell(
       onTap: () => _showProductDetails(product),
       child: Container(
@@ -779,9 +1048,17 @@ class _InventoryPageState extends State<InventoryPage>
                     decoration: BoxDecoration(
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(10),
+                      image: product.imageUrl != null
+                          ? DecorationImage(
+                              image: NetworkImage(product.imageUrl!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
                     ),
-                    child: const Icon(Icons.inventory_2_rounded,
-                        color: Color(0xFF94A3B8), size: 22),
+                    child: product.imageUrl == null
+                        ? const Icon(Icons.inventory_2_rounded,
+                            color: Color(0xFF94A3B8), size: 22)
+                        : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -797,10 +1074,10 @@ class _InventoryPageState extends State<InventoryPage>
                 ],
               ),
             ),
-            // SKU
+            // ID
             Expanded(
               flex: 2,
-              child: Text(product.sku,
+              child: Text(product.id?.substring(0, 8) ?? '-',
                   style: TextStyle(
                       color: Colors.grey[600],
                       fontSize: 13,
@@ -817,7 +1094,7 @@ class _InventoryPageState extends State<InventoryPage>
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  product.category,
+                  product.category ?? '-',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                       color: Color(0xFF6366F1),
@@ -831,13 +1108,13 @@ class _InventoryPageState extends State<InventoryPage>
             Expanded(
               flex: 1,
               child: Text(
-                '${product.quantity}',
+                '$stock',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
-                  color: product.status == 'out_of_stock'
+                  color: status == 'out_of_stock'
                       ? const Color(0xFFEF4444)
-                      : product.status == 'low_stock'
+                      : status == 'low_stock'
                           ? const Color(0xFFF59E0B)
                           : const Color(0xFF1E293B),
                 ),
@@ -846,15 +1123,15 @@ class _InventoryPageState extends State<InventoryPage>
             // Min Stock
             Expanded(
                 flex: 1,
-                child: Text('${product.minStock}',
+                child: Text('10',
                     style: TextStyle(color: Colors.grey[600], fontSize: 13))),
             // Status
-            Expanded(flex: 2, child: _buildStatusBadge(product.status)),
+            Expanded(flex: 2, child: _buildStatusBadge(status)),
             // Value
             Expanded(
               flex: 2,
               child: Text(
-                '\$${(product.quantity * product.price).toStringAsFixed(2)}',
+                '\$${(stock * price).toStringAsFixed(2)}',
                 style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF1E293B),
@@ -868,11 +1145,11 @@ class _InventoryPageState extends State<InventoryPage>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    onPressed: () => _showUpdateDialog(product),
-                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () => _showProductDetails(product),
+                    icon: const Icon(Icons.visibility_outlined),
                     iconSize: 20,
                     color: const Color(0xFF6366F1),
-                    tooltip: 'Edit',
+                    tooltip: 'View',
                   ),
                 ],
               ),
@@ -936,21 +1213,27 @@ class _InventoryPageState extends State<InventoryPage>
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text('No products found',
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[600])),
-          const SizedBox(height: 8),
-          Text('Try adjusting your search or filter',
-              style: TextStyle(fontSize: 14, color: Colors.grey[400])),
-        ],
+    return SingleChildScrollView(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.inventory_2_outlined,
+                  size: 64, color: Colors.grey[300]),
+              const SizedBox(height: 16),
+              Text('No products found',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[600])),
+              const SizedBox(height: 8),
+              Text('Try adjusting your search or filter',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[400])),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1158,15 +1441,22 @@ class _InventoryPageState extends State<InventoryPage>
   // ══════════════════════════════════════════════════════════════════════════════
   void _showAddStockDialog() {
     String selectedMovementType = 'in';
-    ProductStock? selectedProduct;
+    ProductModel? selectedProduct;
     _quantityController.clear();
     _reasonController.clear();
     _notesController.clear();
 
+    // جلب المنتجات من ProductCubit
+    final productState = context.read<ProductCubit>().state;
+    List<ProductModel> products = [];
+    if (productState is ProductLoaded) {
+      products = productState.products;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (dialogContext, setDialogState) => AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
@@ -1235,7 +1525,7 @@ class _InventoryPageState extends State<InventoryPage>
                   ),
                   const SizedBox(height: 20),
 
-                  // Product Selection
+                  // Product Selection - من Supabase
                   const Text('Select Product',
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
@@ -1250,18 +1540,23 @@ class _InventoryPageState extends State<InventoryPage>
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: DropdownButtonHideUnderline(
-                      child: DropdownButton<ProductStock>(
+                      child: DropdownButton<ProductModel>(
                         value: selectedProduct,
                         hint: const Text('Choose a product...'),
                         isExpanded: true,
-                        items: _products
+                        items: products
                             .map((p) => DropdownMenuItem(
                                   value: p,
                                   child: Row(
                                     children: [
-                                      Text(p.name),
-                                      const Spacer(),
-                                      Text('(${p.quantity} in stock)',
+                                      Expanded(
+                                        child: Text(
+                                          p.name,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text('(${p.stock ?? 0} in stock)',
                                           style: const TextStyle(
                                               color: Color(0xFF94A3B8),
                                               fontSize: 12)),
@@ -1274,6 +1569,37 @@ class _InventoryPageState extends State<InventoryPage>
                       ),
                     ),
                   ),
+
+                  // عرض معلومات المنتج المحدد
+                  if (selectedProduct != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF2FF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: const Color(0xFF6366F1).withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.inventory_2_rounded,
+                              color: Color(0xFF6366F1), size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Current Stock: ${selectedProduct!.stock ?? 0}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF6366F1),
+                            ),
+                          ),
+                          const Spacer(),
+                          _buildStatusBadge(
+                              _getStockStatus(selectedProduct!.stock ?? 0)),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
 
                   // Quantity
@@ -1286,10 +1612,25 @@ class _InventoryPageState extends State<InventoryPage>
                   TextField(
                     controller: _quantityController,
                     keyboardType: TextInputType.number,
+                    onChanged: (_) => setDialogState(() {}),
                     decoration: InputDecoration(
-                      hintText: 'Enter quantity',
+                      hintText: selectedMovementType == 'adjustment'
+                          ? 'Enter new stock quantity'
+                          : 'Enter quantity to ${selectedMovementType == 'in' ? 'add' : 'remove'}',
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
+                      prefixIcon: Icon(
+                        selectedMovementType == 'in'
+                            ? Icons.add_rounded
+                            : selectedMovementType == 'out'
+                                ? Icons.remove_rounded
+                                : Icons.edit_rounded,
+                        color: selectedMovementType == 'in'
+                            ? const Color(0xFF10B981)
+                            : selectedMovementType == 'out'
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFFF59E0B),
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -1300,6 +1641,47 @@ class _InventoryPageState extends State<InventoryPage>
                       ),
                     ),
                   ),
+
+                  // معاينة النتيجة
+                  if (selectedProduct != null &&
+                      _quantityController.text.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Builder(builder: (context) {
+                      final qty = int.tryParse(_quantityController.text) ?? 0;
+                      final currentStock = selectedProduct!.stock ?? 0;
+                      int newStock;
+                      if (selectedMovementType == 'in') {
+                        newStock = currentStock + qty;
+                      } else if (selectedMovementType == 'out') {
+                        newStock = (currentStock - qty).clamp(0, 999999);
+                      } else {
+                        newStock = qty;
+                      }
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: const Color(0xFF10B981).withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.preview_rounded,
+                                color: Color(0xFF10B981), size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'New Stock: $newStock',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF10B981),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
                   const SizedBox(height: 20),
 
                   // Reason
@@ -1377,66 +1759,52 @@ class _InventoryPageState extends State<InventoryPage>
                   style: TextStyle(color: Color(0xFF64748B))),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (selectedProduct != null &&
                     _quantityController.text.isNotEmpty) {
                   final qty = int.tryParse(_quantityController.text) ?? 0;
-                  if (qty > 0) {
-                    // Add movement to list
-                    setState(() {
-                      int newQty;
-                      if (selectedMovementType == 'in') {
-                        newQty = selectedProduct!.quantity + qty;
-                      } else if (selectedMovementType == 'out') {
-                        newQty =
-                            (selectedProduct!.quantity - qty).clamp(0, 999999);
-                      } else {
-                        newQty = qty;
-                      }
+                  if (qty >= 0) {
+                    // حساب المخزون الجديد
+                    final currentStock = selectedProduct!.stock ?? 0;
+                    int newStock;
+                    if (selectedMovementType == 'in') {
+                      newStock = currentStock + qty;
+                    } else if (selectedMovementType == 'out') {
+                      newStock = (currentStock - qty).clamp(0, 999999);
+                    } else {
+                      newStock = qty; // adjustment = set directly
+                    }
 
-                      _movements.insert(
-                          0,
-                          StockMovement(
-                            date: DateTime.now().toString().substring(0, 10),
-                            time:
-                                '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
-                            product: selectedProduct!.name,
-                            type: selectedMovementType,
-                            quantity: qty,
-                            before: selectedProduct!.quantity,
-                            after: newQty,
-                            reason: _reasonController.text.isNotEmpty
-                                ? _reasonController.text
-                                : 'Manual update',
-                          ));
-
-                      // Update product quantity
-                      final index = _products
-                          .indexWhere((p) => p.id == selectedProduct!.id);
-                      if (index != -1) {
-                        final p = _products[index];
-                        String newStatus;
-                        if (newQty <= 0) {
-                          newStatus = 'out_of_stock';
-                        } else if (newQty <= p.minStock) {
-                          newStatus = 'low_stock';
-                        } else {
-                          newStatus = 'in_stock';
-                        }
-                        _products[index] = ProductStock(
-                          id: p.id,
-                          name: p.name,
-                          sku: p.sku,
-                          category: p.category,
-                          quantity: newQty,
-                          minStock: p.minStock,
-                          price: p.price,
-                          status: newStatus,
-                        );
-                      }
-                    });
+                    // تحديث المخزون في Supabase
                     Navigator.pop(ctx);
-                    _showSuccessSnackBar('Stock movement added successfully');
+
+                    // استخدام ProductCubit لتحديث المخزون
+                    context.read<ProductCubit>().updateStock(
+                          selectedProduct!.id!,
+                          newStock,
+                        );
+
+                    // إضافة الحركة للقائمة المحلية (للعرض)
+                    setState(() {
+                      _movements.insert(
+                        0,
+                        StockMovement(
+                          date: DateTime.now().toString().substring(0, 10),
+                          time:
+                              '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
+                          product: selectedProduct!.name,
+                          type: selectedMovementType,
+                          quantity: qty,
+                          before: currentStock,
+                          after: newStock,
+                          reason: _reasonController.text.isNotEmpty
+                              ? _reasonController.text
+                              : 'Manual update',
+                        ),
+                      );
+                    });
+
+                    _showSuccessSnackBar('Stock updated successfully!');
                   }
                 }
               },
@@ -1445,7 +1813,7 @@ class _InventoryPageState extends State<InventoryPage>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
-              child: const Text('Add Movement'),
+              child: const Text('Update Stock'),
             ),
           ],
         ),
@@ -1800,7 +2168,11 @@ class _InventoryPageState extends State<InventoryPage>
     );
   }
 
-  void _showProductDetails(ProductStock product) {
+  void _showProductDetails(ProductModel product) {
+    final stock = product.stock ?? 0;
+    final price = product.price ?? 0.0;
+    final status = _getStockStatus(stock);
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1830,9 +2202,9 @@ class _InventoryPageState extends State<InventoryPage>
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: product.status == 'in_stock'
+                  color: status == 'in_stock'
                       ? const Color(0xFFD1FAE5)
-                      : product.status == 'low_stock'
+                      : status == 'low_stock'
                           ? const Color(0xFFFEF3C7)
                           : const Color(0xFFFEE2E2),
                   borderRadius: BorderRadius.circular(10),
@@ -1841,30 +2213,30 @@ class _InventoryPageState extends State<InventoryPage>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      product.status == 'in_stock'
+                      status == 'in_stock'
                           ? Icons.check_circle_rounded
-                          : product.status == 'low_stock'
+                          : status == 'low_stock'
                               ? Icons.warning_rounded
                               : Icons.error_rounded,
-                      color: product.status == 'in_stock'
+                      color: status == 'in_stock'
                           ? const Color(0xFF059669)
-                          : product.status == 'low_stock'
+                          : status == 'low_stock'
                               ? const Color(0xFFD97706)
                               : const Color(0xFFDC2626),
                       size: 20,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      product.status == 'in_stock'
+                      status == 'in_stock'
                           ? 'In Stock'
-                          : product.status == 'low_stock'
+                          : status == 'low_stock'
                               ? 'Low Stock - Reorder Soon'
                               : 'Out of Stock - Action Required',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
-                        color: product.status == 'in_stock'
+                        color: status == 'in_stock'
                             ? const Color(0xFF059669)
-                            : product.status == 'low_stock'
+                            : status == 'low_stock'
                                 ? const Color(0xFFD97706)
                                 : const Color(0xFFDC2626),
                       ),
@@ -1883,19 +2255,20 @@ class _InventoryPageState extends State<InventoryPage>
                 ),
                 child: Column(
                   children: [
-                    _buildDetailRow(Icons.qr_code_rounded, 'SKU', product.sku),
+                    _buildDetailRow(Icons.qr_code_rounded, 'ID',
+                        product.id?.substring(0, 8) ?? '-'),
                     const Divider(height: 16, color: Color(0xFFE2E8F0)),
-                    _buildDetailRow(
-                        Icons.category_rounded, 'Category', product.category),
+                    _buildDetailRow(Icons.category_rounded, 'Category',
+                        product.category ?? '-'),
                     const Divider(height: 16, color: Color(0xFFE2E8F0)),
                     _buildDetailRow(Icons.inventory_rounded, 'Current Stock',
-                        '${product.quantity} units'),
+                        '$stock units'),
                     const Divider(height: 16, color: Color(0xFFE2E8F0)),
                     _buildDetailRow(Icons.warning_amber_rounded,
-                        'Min Stock Level', '${product.minStock} units'),
+                        'Min Stock Level', '10 units'),
                     const Divider(height: 16, color: Color(0xFFE2E8F0)),
                     _buildDetailRow(Icons.attach_money_rounded, 'Unit Price',
-                        '\$${product.price.toStringAsFixed(2)}'),
+                        '\$${price.toStringAsFixed(2)}'),
                   ],
                 ),
               ),
@@ -1919,7 +2292,7 @@ class _InventoryPageState extends State<InventoryPage>
                           color: Colors.white, fontWeight: FontWeight.w500),
                     ),
                     Text(
-                      '\$${(product.quantity * product.price).toStringAsFixed(2)}',
+                      '\$${(stock * price).toStringAsFixed(2)}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -1937,18 +2310,6 @@ class _InventoryPageState extends State<InventoryPage>
             onPressed: () => Navigator.pop(ctx),
             child:
                 const Text('Close', style: TextStyle(color: Color(0xFF64748B))),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _showUpdateDialog(product);
-            },
-            icon: const Icon(Icons.edit_rounded, size: 18),
-            label: const Text('Edit Stock'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6366F1),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
           ),
         ],
       ),
@@ -1989,22 +2350,6 @@ class _InventoryPageState extends State<InventoryPage>
       ),
     );
   }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════════
-// Data Models
-// ══════════════════════════════════════════════════════════════════════════════════
-class CategoryData {
-  final String name;
-  final IconData icon;
-  final int count;
-  final Color color;
-
-  CategoryData(
-      {required this.name,
-      required this.icon,
-      required this.count,
-      required this.color});
 }
 
 class ProductStock {

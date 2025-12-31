@@ -278,8 +278,49 @@ class _ProductsPageState extends State<ProductsPage> {
                             final products = state.products;
 
                             if (products.isEmpty) {
-                              return const Center(
-                                  child: Text("No products found."));
+                              return SingleChildScrollView(
+                                child: Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 24, horizontal: 32),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(16),
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFFF3F4F6),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.inventory_2_outlined,
+                                            size: 36,
+                                            color: Colors.grey[400],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'No products found',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Add products to see them here.',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.grey[500],
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
                             }
 
                             return ListView.builder(

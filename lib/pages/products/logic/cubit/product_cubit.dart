@@ -66,4 +66,47 @@ class ProductCubit extends Cubit<ProductState> {
       emit(ProductError(e.toString()));
     }
   }
+
+  /// تحديث المخزون فقط
+  Future<void> updateStock(String productId, int newStock) async {
+    try {
+      // جلب المنتج الحالي
+      final currentState = state;
+      if (currentState is ProductLoaded) {
+        final product = currentState.products.firstWhere(
+          (p) => p.id == productId,
+          orElse: () => throw Exception('المنتج غير موجود'),
+        );
+
+        // تحديث المنتج بالمخزون الجديد
+        final updatedProduct = ProductModel(
+          id: product.id,
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          category: product.category,
+          stock: newStock,
+          stockStatus: newStock <= 0
+              ? 'Out of Stock'
+              : newStock <= 10
+                  ? 'Low Stock'
+                  : 'In Stock',
+          rating: product.rating,
+          imageUrl: product.imageUrl,
+          createdAt: product.createdAt,
+          updatedAt: DateTime.now(),
+        );
+
+        await _repository.updateProduct(updatedProduct);
+        emit(const ProductOperationSuccess("تم تحديث المخزون بنجاح"));
+
+        // تحديث القائمة
+        await Future.delayed(const Duration(milliseconds: 100));
+        final products = await _repository.getAllProducts();
+        emit(ProductLoaded(products));
+      }
+    } catch (e) {
+      emit(ProductError(e.toString()));
+    }
+  }
 }

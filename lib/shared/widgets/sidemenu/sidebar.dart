@@ -134,6 +134,13 @@ class Sidebar extends StatelessWidget {
                       inactiveIconSrc: "assets/icons/archive_light.svg",
                       onPressed: () => context.go('/inventory'),
                     ),
+                    // Banner
+                    MenuTile(
+                      title: "Banners",
+                      activeIconSrc: "assets/icons/image_filled.svg",
+                      inactiveIconSrc: "assets/icons/image_light.svg",
+                      onPressed: () => context.go('/banners'),
+                    ),
 
                     MenuTile(
                       title: "Shop",

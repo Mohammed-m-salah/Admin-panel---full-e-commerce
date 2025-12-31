@@ -1,5 +1,7 @@
 import 'package:core_dashboard/pages/authentication/logic/cubit/auth_cubit.dart';
 import 'package:core_dashboard/pages/authentication/repositories/auth_repository.dart';
+import 'package:core_dashboard/pages/banner/data/repository/banner_repository.dart';
+import 'package:core_dashboard/pages/banner/logic/cubit/banner_cubit.dart';
 import 'package:core_dashboard/pages/categories/data/repositories/category_repository.dart';
 import 'package:core_dashboard/pages/categories/logic/cubit/category_cubit.dart';
 import 'package:core_dashboard/pages/customer/data/repositories/customer_repository.dart';
@@ -30,6 +32,7 @@ void main() async {
         RepositoryProvider(create: (_) => CustomerRepository()),
         RepositoryProvider(create: (_) => OfferRepository()),
         RepositoryProvider(create: (_) => InventoryRepository()),
+        RepositoryProvider(create: (_) => BannerRepository()),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -44,13 +47,13 @@ void main() async {
           ),
           BlocProvider(
             create: (context) => ProductCubit(
-              context.read<ProductRepository>()..getAllProducts(),
-            ),
+              context.read<ProductRepository>(),
+            )..fetchProducts(),
           ),
           BlocProvider(
             create: (context) => CustomerCubit(
-              context.read<CustomerRepository>()..getAllCustomers(),
-            ),
+              context.read<CustomerRepository>(),
+            )..fetchCustomers(),
           ),
           BlocProvider(
             create: (context) => CustomerCubit(
@@ -61,6 +64,11 @@ void main() async {
           BlocProvider(
             create: (context) => InventoryCubit(
                 (context.read<InventoryRepository>()..getAllInventory())),
+          ),
+          BlocProvider(
+            create: (context) => BannerCubit(
+              context.read<BannerRepository>(),
+            )..loadBanners(), // ← هنا نستدعي loadBanners() لجلب البانرات
           ),
         ],
         child: MainApp(),

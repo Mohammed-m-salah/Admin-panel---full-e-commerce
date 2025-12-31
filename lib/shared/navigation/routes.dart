@@ -1,5 +1,8 @@
 import 'package:core_dashboard/pages/authentication/register_page.dart';
 import 'package:core_dashboard/pages/authentication/sign_in_page.dart';
+import 'package:core_dashboard/pages/banner/data/repository/banner_repository.dart';
+import 'package:core_dashboard/pages/banner/logic/cubit/banner_cubit.dart';
+import 'package:core_dashboard/pages/banner/view/banner_page.dart';
 import 'package:core_dashboard/pages/categories/categories_page.dart';
 import 'package:core_dashboard/pages/categories/data/repositories/category_repository.dart';
 import 'package:core_dashboard/pages/categories/logic/cubit/category_cubit.dart';
@@ -62,7 +65,8 @@ final routerConfig = GoRouter(
     GoRoute(
       path: '/customers',
       builder: (context, state) => BlocProvider(
-        create: (context) => CustomerCubit(CustomerRepository())..fetchCustomers(),
+        create: (context) =>
+            CustomerCubit(CustomerRepository())..fetchCustomers(),
         child: const CustomersPage(),
       ),
     ),
@@ -83,6 +87,13 @@ final routerConfig = GoRouter(
     GoRoute(
       path: '/inventory',
       builder: (context, state) => const InventoryPage(),
+    ),
+    GoRoute(
+      path: '/banners',
+      builder: (context, state) => BlocProvider(
+        create: (context) => BannerCubit(BannerRepository())..loadBanners(),
+        child: const BannerPage(),
+      ),
     ),
 
     // GoRoute(

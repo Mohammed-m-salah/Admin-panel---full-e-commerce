@@ -450,39 +450,44 @@ class _CustomersPageState extends State<CustomersPage> {
       // التحقق إذا كان بسبب البحث أم لا يوجد عملاء أصلاً
       final bool isFiltering = _searchQuery.isNotEmpty || _statusFilter != 'All';
 
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isFiltering ? Icons.search_off : Icons.people_outline,
-              size: 48,
-              color: const Color(0xFF6B7280),
+      return SingleChildScrollView(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isFiltering ? Icons.search_off : Icons.people_outline,
+                  size: 48,
+                  color: const Color(0xFF6B7280),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  isFiltering
+                      ? 'No customers match your search'
+                      : 'No customers yet',
+                  style: const TextStyle(
+                    color: Color(0xFF6B7280),
+                    fontSize: 16,
+                  ),
+                ),
+                if (isFiltering) ...[
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _searchController.clear();
+                        _searchQuery = '';
+                        _statusFilter = 'All';
+                      });
+                    },
+                    child: const Text('Clear filters'),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              isFiltering
-                  ? 'No customers match your search'
-                  : 'No customers yet',
-              style: const TextStyle(
-                color: Color(0xFF6B7280),
-                fontSize: 16,
-              ),
-            ),
-            if (isFiltering) ...[
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _searchController.clear();
-                    _searchQuery = '';
-                    _statusFilter = 'All';
-                  });
-                },
-                child: const Text('Clear filters'),
-              ),
-            ],
-          ],
+          ),
         ),
       );
     }
