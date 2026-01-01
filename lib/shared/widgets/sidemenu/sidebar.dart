@@ -142,6 +142,14 @@ class Sidebar extends StatelessWidget {
                       onPressed: () => context.go('/banners'),
                     ),
 
+                    // Notifications
+                    MenuTile(
+                      title: "Notifications",
+                      activeIconSrc: "assets/icons/notification_filled.svg",
+                      inactiveIconSrc: "assets/icons/notification_light.svg",
+                      onPressed: () => context.go('/notifications'),
+                    ),
+
                     MenuTile(
                       title: "Shop",
                       activeIconSrc: "assets/icons/store_light.svg",

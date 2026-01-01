@@ -1010,7 +1010,6 @@ class _BannerPageState extends State<BannerPage> {
                 imageUrl: data['image_url'],
                 linkType: data['link_type'],
                 linkId: data['link_id'],
-                externalUrl: data['external_url'],
                 status: data['status'].toString().toLowerCase(),
                 startDate: data['start_date'],
                 endDate: data['end_date'],
@@ -1034,7 +1033,6 @@ class _BannerPageState extends State<BannerPage> {
                 imageUrl: data['image_url'],
                 linkType: data['link_type'],
                 linkId: data['link_id'],
-                externalUrl: data['external_url'],
                 status: data['status'].toString().toLowerCase(),
                 startDate: data['start_date'],
                 endDate: data['end_date'],
@@ -1119,7 +1117,6 @@ class _BannerFormDialogState extends State<_BannerFormDialog> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _linkIdController;
-  late TextEditingController _externalUrlController;
   String _status = 'Active';
   String _linkType = 'category';
   DateTime? _startDate;
@@ -1157,7 +1154,6 @@ class _BannerFormDialogState extends State<_BannerFormDialog> {
     _titleController.dispose();
     _descriptionController.dispose();
     _linkIdController.dispose();
-    _externalUrlController.dispose();
     super.dispose();
   }
 
@@ -1310,7 +1306,6 @@ class _BannerFormDialogState extends State<_BannerFormDialog> {
                                   'category',
                                   'product',
                                   'offer',
-                                  'external'
                                 ],
                                 onChanged: (value) =>
                                     setState(() => _linkType = value!))),
@@ -1324,19 +1319,13 @@ class _BannerFormDialogState extends State<_BannerFormDialog> {
                                     setState(() => _status = value!))),
                       ]),
                       const SizedBox(height: 16),
-                      if (_linkType == 'external')
-                        _buildTextField(
-                            controller: _externalUrlController,
-                            label: 'External URL',
-                            hint: 'https://example.com',
-                            prefixIcon: Icons.link)
-                      else
-                        _buildTextField(
-                            controller: _linkIdController,
-                            label:
-                                '${_linkType[0].toUpperCase()}${_linkType.substring(1)} ID',
-                            hint: 'Enter $_linkType ID',
-                            prefixIcon: Icons.tag),
+
+                      _buildTextField(
+                          controller: _linkIdController,
+                          label:
+                              '${_linkType[0].toUpperCase()}${_linkType.substring(1)} ID',
+                          hint: 'Enter $_linkType ID',
+                          prefixIcon: Icons.tag),
                       const SizedBox(height: 16),
                       Row(children: [
                         Expanded(
@@ -1461,9 +1450,6 @@ class _BannerFormDialogState extends State<_BannerFormDialog> {
         'link_type': _linkType,
         'link_id':
             _linkIdController.text.isEmpty ? null : _linkIdController.text,
-        'external_url': _externalUrlController.text.isEmpty
-            ? null
-            : _externalUrlController.text,
         'status': _status,
         'start_date': _startDate,
         'end_date': _endDate,
@@ -1579,7 +1565,7 @@ class _BannerFormDialogState extends State<_BannerFormDialog> {
             size: 40, color: Colors.grey[500]),
       ),
       const SizedBox(height: 12),
-      Text('اضغط لاختيار صورة',
+      Text('Click to select an image',
           style: TextStyle(
               color: Colors.grey[600],
               fontSize: 14,

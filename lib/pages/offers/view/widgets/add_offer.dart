@@ -1,10 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/model/offer_model.dart';
 import '../../logic/cubit/offer_cubit.dart';
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Add Offer Dialog with Target Selection (All / Category / Product)
+// ═══════════════════════════════════════════════════════════════════════════════
+
 class AddOfferDialog extends StatefulWidget {
-  const AddOfferDialog({super.key});
+  final String? initialType;
+  final bool withCode;
+  final bool isFlashSale;
+
+  const AddOfferDialog({
+    super.key,
+    this.initialType,
+    this.withCode = false,
+    this.isFlashSale = false,
+  });
 
   @override
   State<AddOfferDialog> createState() => _AddOfferDialogState();
@@ -25,6 +39,59 @@ class _AddOfferDialogState extends State<AddOfferDialog> {
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 30));
   bool _isLoading = false;
+
+  // Target selection
+  DiscountTarget _target = DiscountTarget.all;
+  String? _selectedCategoryId;
+  String? _selectedCategoryName;
+  String? _selectedProductId;
+  String? _selectedProductName;
+
+  // Data lists
+  List<Map<String, dynamic>> _categories = [];
+  List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _filteredProducts = [];
+  bool _isLoadingData = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialType != null) {
+      _discountType = widget.initialType!;
+    }
+    if (widget.isFlashSale) {
+      _endDate = DateTime.now().add(const Duration(hours: 24));
+      _titleController.text = 'Flash Sale - ';
+    }
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      // Load categories
+      final categoriesResponse = await supabase
+          .from('categories')
+          .select('id, name')
+          .order('name');
+
+      // Load products
+      final productsResponse = await supabase
+          .from('products')
+          .select('id, name, category, price, image_url')
+          .order('name');
+
+      setState(() {
+        _categories = List<Map<String, dynamic>>.from(categoriesResponse);
+        _products = List<Map<String, dynamic>>.from(productsResponse);
+        _filteredProducts = _products;
+        _isLoadingData = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingData = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -71,6 +138,26 @@ class _AddOfferDialogState extends State<AddOfferDialog> {
 
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
+      // Validate target selection
+      if (_target == DiscountTarget.category && _selectedCategoryId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a category'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      if (_target == DiscountTarget.product && _selectedProductId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a product'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       setState(() => _isLoading = true);
 
       final offer = OfferModel(
@@ -94,12 +181,14 @@ class _AddOfferDialogState extends State<AddOfferDialog> {
             : int.tryParse(_usageLimitController.text),
         usedCount: 0,
         status: _status,
+        target: _target,
+        categoryId: _selectedCategoryId,
+        categoryName: _selectedCategoryName,
+        productId: _selectedProductId,
+        productName: _selectedProductName,
       );
 
-      // استدعاء addOffer من الـ Cubit
       context.read<OfferCubit>().addOffer(offer);
-
-      // إغلاق النافذة
       Navigator.pop(context);
     }
   }
@@ -111,69 +200,12 @@ class _AddOfferDialogState extends State<AddOfferDialog> {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Container(
-        width: 550,
-        constraints: const BoxConstraints(maxHeight: 700),
+        width: 650,
+        constraints: const BoxConstraints(maxHeight: 750),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF5542F6).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.local_offer_outlined,
-                      color: Color(0xFF5542F6),
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Add New Offer',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1F2937),
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Create a new discount or promotional offer',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF6B7280),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                    color: const Color(0xFF6B7280),
-                  ),
-                ],
-              ),
-            ),
-
-            // Form Content
+            _buildHeader(),
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
@@ -182,6 +214,12 @@ class _AddOfferDialogState extends State<AddOfferDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Target Selection Section
+                      _buildTargetSection(),
+                      const SizedBox(height: 24),
+                      const Divider(),
+                      const SizedBox(height: 24),
+
                       // Title
                       _buildLabel('Offer Title'),
                       const SizedBox(height: 8),
@@ -214,7 +252,7 @@ class _AddOfferDialogState extends State<AddOfferDialog> {
                       const SizedBox(height: 20),
 
                       // Promo Code
-                      _buildLabel('Promo Code'),
+                      _buildLabel('Promo Code (Optional)'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _codeController,
@@ -223,12 +261,6 @@ class _AddOfferDialogState extends State<AddOfferDialog> {
                           'Enter promo code (e.g., SAVE20)',
                           Icons.confirmation_number_outlined,
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter promo code';
-                          }
-                          return null;
-                        },
                       ),
                       const SizedBox(height: 20),
 
@@ -243,8 +275,8 @@ class _AddOfferDialogState extends State<AddOfferDialog> {
                                 const SizedBox(height: 8),
                                 Row(
                                   children: [
-                                    _buildTypeChip('percentage', 'Percentage',
-                                        Icons.percent),
+                                    _buildTypeChip(
+                                        'percentage', 'Percentage', Icons.percent),
                                     const SizedBox(width: 12),
                                     _buildTypeChip(
                                         'fixed', 'Fixed', Icons.attach_money),
@@ -364,7 +396,7 @@ class _AddOfferDialogState extends State<AddOfferDialog> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Usage Limit
+                      // Usage Limit & Status
                       Row(
                         children: [
                           Expanded(
@@ -393,11 +425,11 @@ class _AddOfferDialogState extends State<AddOfferDialog> {
                                 const SizedBox(height: 8),
                                 Row(
                                   children: [
-                                    _buildStatusChip('active', 'Active',
-                                        const Color(0xFF10B981)),
+                                    _buildStatusChip(
+                                        'active', 'Active', const Color(0xFF10B981)),
                                     const SizedBox(width: 12),
-                                    _buildStatusChip('inactive', 'Inactive',
-                                        const Color(0xFFEF4444)),
+                                    _buildStatusChip(
+                                        'inactive', 'Inactive', const Color(0xFFEF4444)),
                                   ],
                                 ),
                               ],
@@ -410,65 +442,606 @@ class _AddOfferDialogState extends State<AddOfferDialog> {
                 ),
               ),
             ),
+            _buildFooter(),
+          ],
+        ),
+      ),
+    );
+  }
 
-            // Footer Actions
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Color(0xFFE5E7EB)),
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF5542F6).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.local_offer_outlined,
+              color: Color(0xFF5542F6),
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.isFlashSale ? 'Create Flash Sale' : 'Add New Discount',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Apply discount to all products, category, or specific product',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close),
+            color: const Color(0xFF6B7280),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTargetSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0EFFF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF5542F6).withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5542F6).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.track_changes_rounded,
+                  color: Color(0xFF5542F6),
+                  size: 20,
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton(
-                    onPressed: _isLoading ? null : () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      side: const BorderSide(color: Color(0xFFE5E7EB)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: Color(0xFF6B7280)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _submitForm,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF5542F6),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Create Offer'),
-                  ),
-                ],
+              const SizedBox(width: 12),
+              const Text(
+                'Apply Discount To',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Target Type Selection
+          Row(
+            children: [
+              Expanded(
+                child: _buildTargetOption(
+                  target: DiscountTarget.all,
+                  icon: Icons.apps_rounded,
+                  title: 'All Products',
+                  subtitle: 'Apply to entire store',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildTargetOption(
+                  target: DiscountTarget.category,
+                  icon: Icons.category_rounded,
+                  title: 'Category',
+                  subtitle: 'Select a category',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildTargetOption(
+                  target: DiscountTarget.product,
+                  icon: Icons.inventory_2_rounded,
+                  title: 'Product',
+                  subtitle: 'Select a product',
+                ),
+              ),
+            ],
+          ),
+
+          // Category Selection
+          if (_target == DiscountTarget.category) ...[
+            const SizedBox(height: 16),
+            _buildCategorySelector(),
+          ],
+
+          // Product Selection
+          if (_target == DiscountTarget.product) ...[
+            const SizedBox(height: 16),
+            _buildProductSelector(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTargetOption({
+    required DiscountTarget target,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    final isSelected = _target == target;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _target = target;
+          if (target != DiscountTarget.category) {
+            _selectedCategoryId = null;
+            _selectedCategoryName = null;
+          }
+          if (target != DiscountTarget.product) {
+            _selectedProductId = null;
+            _selectedProductName = null;
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF5542F6) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF5542F6)
+                : const Color(0xFFE5E7EB),
+            width: 2,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF5542F6).withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : null,
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : const Color(0xFF6B7280),
+              size: 28,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? Colors.white : const Color(0xFF1F2937),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 11,
+                color: isSelected
+                    ? Colors.white.withOpacity(0.8)
+                    : const Color(0xFF6B7280),
+              ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCategorySelector() {
+    if (_isLoadingData) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Select Category',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF374151),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: _categories.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('No categories available'),
+                )
+              : Column(
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: _categories.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                        itemBuilder: (context, index) {
+                          final category = _categories[index];
+                          final isSelected =
+                              _selectedCategoryId == category['id'];
+                          return InkWell(
+                            onTap: () {
+                              setState(() {
+                                _selectedCategoryId = category['id'];
+                                _selectedCategoryName = category['name'];
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              color: isSelected
+                                  ? const Color(0xFF5542F6).withOpacity(0.1)
+                                  : null,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? const Color(0xFF5542F6)
+                                          : const Color(0xFFF3F4F6),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      Icons.category_outlined,
+                                      size: 18,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : const Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      category['name'] ?? 'Unknown',
+                                      style: TextStyle(
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                        color: isSelected
+                                            ? const Color(0xFF5542F6)
+                                            : const Color(0xFF1F2937),
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    const Icon(
+                                      Icons.check_circle,
+                                      color: Color(0xFF5542F6),
+                                      size: 20,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+        if (_selectedCategoryName != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.check_circle,
+                  color: Color(0xFF10B981),
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Selected: $_selectedCategoryName',
+                  style: const TextStyle(
+                    color: Color(0xFF10B981),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildProductSelector() {
+    if (_isLoadingData) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Select Product',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF374151),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Search field
+        TextField(
+          onChanged: (value) {
+            setState(() {
+              if (value.isEmpty) {
+                _filteredProducts = _products;
+              } else {
+                _filteredProducts = _products
+                    .where((p) => (p['name'] ?? '')
+                        .toString()
+                        .toLowerCase()
+                        .contains(value.toLowerCase()))
+                    .toList();
+              }
+            });
+          },
+          decoration: InputDecoration(
+            hintText: 'Search products...',
+            prefixIcon:
+                const Icon(Icons.search_rounded, color: Color(0xFF6B7280)),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: _filteredProducts.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('No products found'),
+                )
+              : ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _filteredProducts.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    itemBuilder: (context, index) {
+                      final product = _filteredProducts[index];
+                      final isSelected = _selectedProductId == product['id'];
+                      return InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedProductId = product['id'];
+                            _selectedProductName = product['name'];
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          color: isSelected
+                              ? const Color(0xFF5542F6).withOpacity(0.1)
+                              : null,
+                          child: Row(
+                            children: [
+                              // Product image
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF3F4F6),
+                                  borderRadius: BorderRadius.circular(8),
+                                  image: product['image_url'] != null
+                                      ? DecorationImage(
+                                          image: NetworkImage(
+                                              product['image_url']),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : null,
+                                ),
+                                child: product['image_url'] == null
+                                    ? const Icon(
+                                        Icons.image_outlined,
+                                        color: Color(0xFF6B7280),
+                                        size: 20,
+                                      )
+                                    : null,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      product['name'] ?? 'Unknown',
+                                      style: TextStyle(
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                        color: isSelected
+                                            ? const Color(0xFF5542F6)
+                                            : const Color(0xFF1F2937),
+                                      ),
+                                    ),
+                                    if (product['price'] != null)
+                                      Text(
+                                        '\$${product['price']}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF6B7280),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check_circle,
+                                  color: Color(0xFF5542F6),
+                                  size: 20,
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+        ),
+        if (_selectedProductName != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.check_circle,
+                  color: Color(0xFF10B981),
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Selected: $_selectedProductName',
+                  style: const TextStyle(
+                    color: Color(0xFF10B981),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFooter() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Color(0xFFE5E7EB)),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          OutlinedButton(
+            onPressed: _isLoading ? null : () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              side: const BorderSide(color: Color(0xFFE5E7EB)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF6B7280)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            onPressed: _isLoading ? null : _submitForm,
+            icon: _isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.check_rounded, size: 20),
+            label: const Text('Create Discount'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF5542F6),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

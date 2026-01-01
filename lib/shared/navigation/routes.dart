@@ -12,6 +12,7 @@ import 'package:core_dashboard/pages/customer/logic/cubit/customer_cubit.dart';
 import 'package:core_dashboard/pages/dashboard/dashboard_page.dart';
 import 'package:core_dashboard/pages/entry_point.dart';
 import 'package:core_dashboard/pages/inventory/view/inventory_page.dart';
+import 'package:core_dashboard/pages/notifications/view/notifications_page.dart';
 import 'package:core_dashboard/pages/offers/view/offers_page.dart';
 import 'package:core_dashboard/pages/offers/data/repositories/offer_repository.dart';
 import 'package:core_dashboard/pages/offers/logic/cubit/offer_cubit.dart';
@@ -94,6 +95,10 @@ final routerConfig = GoRouter(
         create: (context) => BannerCubit(BannerRepository())..loadBanners(),
         child: const BannerPage(),
       ),
+    ),
+    GoRoute(
+      path: '/notifications',
+      builder: (context, state) => const NotificationsPage(),
     ),
 
     // GoRoute(

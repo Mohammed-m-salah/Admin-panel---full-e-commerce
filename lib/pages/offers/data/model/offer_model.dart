@@ -1,3 +1,13 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// Offer Model with Target Support (Product / Category / All)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+enum DiscountTarget {
+  all,        // All products
+  category,   // Specific category
+  product,    // Specific product
+}
+
 class OfferModel {
   final String? id;
   final String title;
@@ -12,6 +22,14 @@ class OfferModel {
   final int? usageLimit;
   final int? usedCount;
   final String? status; // 'active', 'inactive', 'expired', 'scheduled'
+
+  // Target fields
+  final DiscountTarget target;
+  final String? categoryId;
+  final String? categoryName;
+  final String? productId;
+  final String? productName;
+
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -29,6 +47,11 @@ class OfferModel {
     this.usageLimit,
     this.usedCount,
     this.status,
+    this.target = DiscountTarget.all,
+    this.categoryId,
+    this.categoryName,
+    this.productId,
+    this.productName,
     this.createdAt,
     this.updatedAt,
   });
@@ -52,6 +75,11 @@ class OfferModel {
       usageLimit: map['usage_limit'],
       usedCount: map['used_count'],
       status: map['status'],
+      target: _parseTarget(map['target']),
+      categoryId: map['category_id'],
+      categoryName: map['category_name'] ?? map['categories']?['name'],
+      productId: map['product_id'],
+      productName: map['product_name'] ?? map['products']?['name'],
       createdAt:
           map['created_at'] != null ? DateTime.parse(map['created_at']) : null,
       updatedAt:
@@ -73,7 +101,21 @@ class OfferModel {
       'usage_limit': usageLimit,
       'used_count': usedCount,
       'status': status,
+      'target': target.name,
+      'category_id': categoryId,
+      'product_id': productId,
     };
+  }
+
+  static DiscountTarget _parseTarget(String? value) {
+    switch (value?.toLowerCase()) {
+      case 'category':
+        return DiscountTarget.category;
+      case 'product':
+        return DiscountTarget.product;
+      default:
+        return DiscountTarget.all;
+    }
   }
 
   // Helper to check if offer is currently active
@@ -90,6 +132,30 @@ class OfferModel {
       return '${discountValue.toStringAsFixed(0)}%';
     } else {
       return '\$${discountValue.toStringAsFixed(2)}';
+    }
+  }
+
+  // Helper to get target display name
+  String get targetDisplayName {
+    switch (target) {
+      case DiscountTarget.all:
+        return 'All Products';
+      case DiscountTarget.category:
+        return categoryName ?? 'Category';
+      case DiscountTarget.product:
+        return productName ?? 'Product';
+    }
+  }
+
+  // Helper to get target icon
+  String get targetIcon {
+    switch (target) {
+      case DiscountTarget.all:
+        return 'all';
+      case DiscountTarget.category:
+        return 'category';
+      case DiscountTarget.product:
+        return 'product';
     }
   }
 }

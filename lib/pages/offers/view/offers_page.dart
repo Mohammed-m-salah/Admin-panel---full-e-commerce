@@ -14,14 +14,23 @@ class OffersPage extends StatefulWidget {
   State<OffersPage> createState() => _OffersPageState();
 }
 
-class _OffersPageState extends State<OffersPage> {
+class _OffersPageState extends State<OffersPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _statusFilter = 'All';
   String _typeFilter = 'All';
 
   @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -34,7 +43,6 @@ class _OffersPageState extends State<OffersPage> {
         final title = offer.title.toLowerCase();
         final code = (offer.code ?? '').toLowerCase();
         final description = (offer.description ?? '').toLowerCase();
-
         matchesSearch = title.contains(query) ||
             code.contains(query) ||
             description.contains(query);
@@ -58,465 +66,766 @@ class _OffersPageState extends State<OffersPage> {
 
   @override
   Widget build(BuildContext context) {
-    // ═══════════════════════════════════════════════════════════════════
-    // BlocConsumer: يجمع بين listener و builder
-    // - listener: للاستماع للحالات وعرض SnackBar
-    // - builder: لبناء الواجهة حسب الحالة
-    // ═══════════════════════════════════════════════════════════════════
     return BlocConsumer<OfferCubit, OfferState>(
-      // ─────────────────────────────────────────────────────────────────
-      // listener: يُنفذ عند كل تغيير في الحالة (لا يُعيد بناء الواجهة)
-      // مثالي لعرض SnackBar أو Dialog
-      // ─────────────────────────────────────────────────────────────────
       listener: (context, state) {
         if (state is OfferOperationSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(state.message),
-              backgroundColor: Colors.green,
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Text(state.message),
+                ],
+              ),
+              backgroundColor: const Color(0xFF10B981),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              margin: const EdgeInsets.all(16),
             ),
           );
         } else if (state is OfferError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(state.message),
-              backgroundColor: Colors.red,
+              content: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Text(state.message),
+                ],
+              ),
+              backgroundColor: const Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              margin: const EdgeInsets.all(16),
             ),
           );
         }
       },
-      // ─────────────────────────────────────────────────────────────────
-      // builder: يبني الواجهة حسب الحالة
-      // يُعاد بناؤه عند كل تغيير في الحالة
-      // ─────────────────────────────────────────────────────────────────
       builder: (context, state) {
-        // استخراج قائمة العروض من الحالة
         List<OfferModel> offers = [];
         if (state is OfferLoaded) {
           offers = state.offers;
         }
 
-        // تطبيق الفلترة على القائمة
         final filteredOffers = _filterOffers(offers);
+        final activeOffers =
+            offers.where((o) => o.status?.toLowerCase() == 'active').toList();
+        final scheduledOffers = offers
+            .where((o) => o.status?.toLowerCase() == 'scheduled')
+            .toList();
+        final expiredOffers =
+            offers.where((o) => o.status?.toLowerCase() == 'expired').toList();
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8F9FA),
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 1,
-            title: const Text(
-              'Offers & Discounts',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1F2937),
-              ),
-            ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    // ─────────────────────────────────────────────────────
-                    // نمرر الـ Cubit للنافذة حتى تستطيع استدعاء addOffer
-                    // ─────────────────────────────────────────────────────
-                    final cubit = context.read<OfferCubit>();
-                    showDialog(
-                      context: context,
-                      builder: (dialogContext) => BlocProvider.value(
-                        value: cubit,
-                        child: const AddOfferDialog(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Offer'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5542F6),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+          body: Column(
+            children: [
+              _buildHeader(context),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildStatCards(offers, filteredOffers),
+                      const SizedBox(height: 24),
+                      _buildQuickActions(context),
+                      const SizedBox(height: 24),
+                      _buildOffersTable(context, state, filteredOffers),
+                    ],
                   ),
                 ),
               ),
             ],
-          ),
-          body: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Search and Filters Row
-                Row(
-                  children: [
-                    // Search Field
-                    Expanded(
-                      flex: 3,
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (value) {
-                          setState(() {
-                            _searchQuery = value;
-                          });
-                        },
-                        decoration: InputDecoration(
-                          hintText:
-                              'Search offers by title, code or description...',
-                          prefixIcon:
-                              const Icon(Icons.search, color: Color(0xFF6B7280)),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear,
-                                      color: Color(0xFF6B7280)),
-                                  onPressed: () {
-                                    setState(() {
-                                      _searchController.clear();
-                                      _searchQuery = '';
-                                    });
-                                  },
-                                )
-                              : null,
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Color(0xFFE5E7EB)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Color(0xFFE5E7EB)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                                color: Color(0xFF5542F6), width: 2),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-
-                    // Status Filter
-                    Expanded(
-                      flex: 1,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _statusFilter,
-                            isExpanded: true,
-                            icon: const Icon(Icons.keyboard_arrow_down),
-                            items: [
-                              'All',
-                              'Active',
-                              'Inactive',
-                              'Scheduled',
-                              'Expired'
-                            ]
-                                .map((status) => DropdownMenuItem(
-                                      value: status,
-                                      child: Text(status),
-                                    ))
-                                .toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _statusFilter = value ?? 'All';
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-
-                    // Type Filter
-                    Expanded(
-                      flex: 1,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _typeFilter,
-                            isExpanded: true,
-                            icon: const Icon(Icons.keyboard_arrow_down),
-                            items: ['All', 'Percentage', 'Fixed']
-                                .map((type) => DropdownMenuItem(
-                                      value: type,
-                                      child: Text(type),
-                                    ))
-                                .toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _typeFilter = value ?? 'All';
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // Statistics Cards
-                Row(
-                  children: [
-                    _buildStatCard(
-                      'Total Offers',
-                      filteredOffers.length.toString(),
-                      Icons.local_offer_outlined,
-                      const Color(0xFF5542F6),
-                    ),
-                    const SizedBox(width: 16),
-                    _buildStatCard(
-                      'Active Offers',
-                      filteredOffers
-                          .where((o) => o.status?.toLowerCase() == 'active')
-                          .length
-                          .toString(),
-                      Icons.check_circle_outline,
-                      const Color(0xFF10B981),
-                    ),
-                    const SizedBox(width: 16),
-                    _buildStatCard(
-                      'Scheduled',
-                      filteredOffers
-                          .where((o) => o.status?.toLowerCase() == 'scheduled')
-                          .length
-                          .toString(),
-                      Icons.schedule_outlined,
-                      const Color(0xFFF59E0B),
-                    ),
-                    const SizedBox(width: 16),
-                    _buildStatCard(
-                      'Total Usage',
-                      filteredOffers
-                          .fold<int>(0, (sum, o) => sum + (o.usedCount ?? 0))
-                          .toString(),
-                      Icons.people_outline,
-                      const Color(0xFFEF4444),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // Offers Table
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        // Table Header
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 16,
-                          ),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF9FAFB),
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(12),
-                              topRight: Radius.circular(12),
-                            ),
-                          ),
-                          child: const Row(
-                            children: [
-                              SizedBox(
-                                width: 50,
-                                child: Text(
-                                  '',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'Offer',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  'Code',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  'Discount',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  'Duration',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  'Usage',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  'Status',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 100,
-                                child: Text(
-                                  'Actions',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
-                        // Table Content - يتغير حسب الحالة
-                        Expanded(
-                          child: _buildTableContent(state, filteredOffers),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         );
       },
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // _buildTableContent: يبني محتوى الجدول حسب الحالة
-  // ═══════════════════════════════════════════════════════════════════════
-  Widget _buildTableContent(OfferState state, List<OfferModel> offers) {
-    // ─────────────────────────────────────────────────────────────────────
-    // حالة التحميل: نعرض CircularProgressIndicator
-    // ─────────────────────────────────────────────────────────────────────
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF5542F6), Color(0xFF7C3AED)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.local_offer_outlined,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Offers & Discounts',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+              Text(
+                'Manage promotional offers and discount codes',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+          const Spacer(),
+          OutlinedButton.icon(
+            onPressed: () {
+              // Export offers
+            },
+            icon: const Icon(Icons.download_outlined, size: 20),
+            label: const Text('Export'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF5542F6),
+              side: const BorderSide(color: Color(0xFF5542F6)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            onPressed: () {
+              final cubit = context.read<OfferCubit>();
+              showDialog(
+                context: context,
+                builder: (dialogContext) => BlocProvider.value(
+                  value: cubit,
+                  child: const AddOfferDialog(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.add_rounded, size: 20),
+            label: const Text('Add Offer'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF5542F6),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              elevation: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCards(
+      List<OfferModel> allOffers, List<OfferModel> filteredOffers) {
+    final activeCount =
+        allOffers.where((o) => o.status?.toLowerCase() == 'active').length;
+    final scheduledCount =
+        allOffers.where((o) => o.status?.toLowerCase() == 'scheduled').length;
+    final totalUsage =
+        allOffers.fold<int>(0, (sum, o) => sum + (o.usedCount ?? 0));
+    final totalSavings = allOffers.fold<double>(0, (sum, o) {
+      if (o.discountType == 'fixed') {
+        return sum + (o.discountValue * (o.usedCount ?? 0));
+      }
+      return sum;
+    });
+
+    return Row(
+      children: [
+        _buildStatCard(
+          title: 'Total Offers',
+          value: allOffers.length.toString(),
+          icon: Icons.local_offer_outlined,
+          color: const Color(0xFF5542F6),
+          subtitle: 'All offers',
+          trend: '+${filteredOffers.length} shown',
+          trendUp: true,
+        ),
+        const SizedBox(width: 20),
+        _buildStatCard(
+          title: 'Active Offers',
+          value: activeCount.toString(),
+          icon: Icons.check_circle_outline,
+          color: const Color(0xFF10B981),
+          subtitle: 'Currently running',
+          trend: activeCount > 0 ? 'Live now' : 'No active',
+          trendUp: activeCount > 0,
+        ),
+        const SizedBox(width: 20),
+        _buildStatCard(
+          title: 'Scheduled',
+          value: scheduledCount.toString(),
+          icon: Icons.schedule_outlined,
+          color: const Color(0xFFF59E0B),
+          subtitle: 'Upcoming offers',
+          trend: scheduledCount > 0 ? 'Pending' : 'None scheduled',
+          trendUp: scheduledCount > 0,
+        ),
+        const SizedBox(width: 20),
+        _buildStatCard(
+          title: 'Total Redemptions',
+          value: _formatNumber(totalUsage),
+          icon: Icons.redeem_outlined,
+          color: const Color(0xFFEF4444),
+          subtitle: 'Times used',
+          trend: '\$${_formatNumber(totalSavings.toInt())} saved',
+          trendUp: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required String subtitle,
+    String? trend,
+    bool trendUp = true,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                if (trend != null)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: trendUp
+                          ? const Color(0xFF10B981).withOpacity(0.1)
+                          : const Color(0xFFEF4444).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      trend,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: trendUp
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1F2937),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5542F6).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.flash_on_rounded,
+                  color: Color(0xFF5542F6),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Quick Actions',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _buildQuickActionCard(
+                  icon: Icons.percent_rounded,
+                  title: 'Percentage Discount',
+                  description: 'Create a percentage-based discount offer',
+                  color: const Color(0xFF5542F6),
+                  onTap: () {
+                    final cubit = context.read<OfferCubit>();
+                    showDialog(
+                      context: context,
+                      builder: (dialogContext) => BlocProvider.value(
+                        value: cubit,
+                        child: const AddOfferDialog(initialType: 'percentage'),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildQuickActionCard(
+                  icon: Icons.attach_money_rounded,
+                  title: 'Fixed Amount Discount',
+                  description: 'Create a fixed amount discount offer',
+                  color: const Color(0xFF10B981),
+                  onTap: () {
+                    final cubit = context.read<OfferCubit>();
+                    showDialog(
+                      context: context,
+                      builder: (dialogContext) => BlocProvider.value(
+                        value: cubit,
+                        child: const AddOfferDialog(initialType: 'fixed'),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildQuickActionCard(
+                  icon: Icons.qr_code_rounded,
+                  title: 'Promo Code',
+                  description: 'Generate a unique promotional code',
+                  color: const Color(0xFFF59E0B),
+                  onTap: () {
+                    final cubit = context.read<OfferCubit>();
+                    showDialog(
+                      context: context,
+                      builder: (dialogContext) => BlocProvider.value(
+                        value: cubit,
+                        child: const AddOfferDialog(withCode: true),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildQuickActionCard(
+                  icon: Icons.timer_outlined,
+                  title: 'Flash Sale',
+                  description: 'Create a time-limited flash sale',
+                  color: const Color(0xFFEF4444),
+                  onTap: () {
+                    final cubit = context.read<OfferCubit>();
+                    showDialog(
+                      context: context,
+                      builder: (dialogContext) => BlocProvider.value(
+                        value: cubit,
+                        child: const AddOfferDialog(isFlashSale: true),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionCard({
+    required IconData icon,
+    required String title,
+    required String description,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOffersTable(
+      BuildContext context, OfferState state, List<OfferModel> filteredOffers) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        children: [
+          // Search and Filter Bar
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _searchQuery = value),
+                    decoration: InputDecoration(
+                      hintText:
+                          'Search offers by title, code or description...',
+                      hintStyle: TextStyle(color: Colors.grey[400]),
+                      prefixIcon:
+                          Icon(Icons.search_rounded, color: Colors.grey[400]),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.close_rounded,
+                                  color: Colors.grey[400]),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: const Color(0xFFF9FAFB),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _statusFilter,
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                      items:
+                          ['All', 'Active', 'Inactive', 'Scheduled', 'Expired']
+                              .map((status) => DropdownMenuItem(
+                                    value: status,
+                                    child: Text(status),
+                                  ))
+                              .toList(),
+                      onChanged: (value) =>
+                          setState(() => _statusFilter = value ?? 'All'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _typeFilter,
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                      items: ['All', 'Percentage', 'Fixed']
+                          .map((type) => DropdownMenuItem(
+                                value: type,
+                                child: Text(type),
+                              ))
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _typeFilter = value ?? 'All'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Table Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF9FAFB),
+            ),
+            child: const Row(
+              children: [
+                SizedBox(
+                    width: 60,
+                    child: Text('',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6B7280)))),
+                SizedBox(width: 12),
+                Expanded(
+                    flex: 2,
+                    child: Text('Offer',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6B7280)))),
+                Expanded(
+                    child: Text('Applies To',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6B7280)))),
+                Expanded(
+                    child: Text('Discount',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6B7280)))),
+                Expanded(
+                    flex: 2,
+                    child: Text('Duration',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6B7280)))),
+                Expanded(
+                    child: Text('Usage',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6B7280)))),
+                SizedBox(
+                    width: 80,
+                    child: Text('Status',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6B7280)))),
+                SizedBox(
+                    width: 140,
+                    child: Text('Actions',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6B7280)))),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+
+          // Table Content
+          SizedBox(
+            height: 400,
+            child: _buildTableContent(context, state, filteredOffers),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableContent(
+      BuildContext context, OfferState state, List<OfferModel> offers) {
     if (state is OfferLoading) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFF5542F6),
-        ),
+        child: CircularProgressIndicator(color: Color(0xFF5542F6)),
       );
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // حالة الخطأ: نعرض رسالة خطأ مع زر إعادة المحاولة
-    // ─────────────────────────────────────────────────────────────────────
     if (state is OfferError) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(50),
+              ),
+              child: const Icon(Icons.error_outline,
+                  size: 40, color: Color(0xFFEF4444)),
+            ),
             const SizedBox(height: 16),
             Text(
               state.message,
-              style: const TextStyle(color: Colors.red),
+              style: const TextStyle(color: Color(0xFFEF4444), fontSize: 16),
             ),
             const SizedBox(height: 16),
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: () => context.read<OfferCubit>().fetchOffers(),
-              child: const Text('Retry'),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5542F6),
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         ),
       );
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // حالة عدم وجود نتائج
-    // ─────────────────────────────────────────────────────────────────────
     if (offers.isEmpty) {
-      final bool isFiltering =
-          _searchQuery.isNotEmpty || _statusFilter != 'All' || _typeFilter != 'All';
+      final bool isFiltering = _searchQuery.isNotEmpty ||
+          _statusFilter != 'All' ||
+          _typeFilter != 'All';
 
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              isFiltering ? Icons.search_off : Icons.local_offer_outlined,
-              size: 48,
-              color: const Color(0xFF6B7280),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(50),
+              ),
+              child: Icon(
+                isFiltering
+                    ? Icons.search_off_rounded
+                    : Icons.local_offer_outlined,
+                size: 48,
+                color: Colors.grey[400],
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Text(
               isFiltering ? 'No offers match your search' : 'No offers yet',
               style: const TextStyle(
-                color: Color(0xFF6B7280),
-                fontSize: 16,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1F2937),
               ),
             ),
-            if (isFiltering) ...[
-              const SizedBox(height: 8),
-              TextButton(
+            const SizedBox(height: 8),
+            Text(
+              isFiltering
+                  ? 'Try adjusting your filters'
+                  : 'Create your first offer to get started',
+              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 24),
+            if (isFiltering)
+              OutlinedButton.icon(
                 onPressed: () {
                   setState(() {
                     _searchController.clear();
@@ -525,95 +834,87 @@ class _OffersPageState extends State<OffersPage> {
                     _typeFilter = 'All';
                   });
                 },
-                child: const Text('Clear filters'),
+                icon: const Icon(Icons.clear_all_rounded),
+                label: const Text('Clear Filters'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF5542F6),
+                  side: const BorderSide(color: Color(0xFF5542F6)),
+                ),
+              )
+            else
+              ElevatedButton.icon(
+                onPressed: () {
+                  final cubit = context.read<OfferCubit>();
+                  showDialog(
+                    context: context,
+                    builder: (dialogContext) => BlocProvider.value(
+                      value: cubit,
+                      child: const AddOfferDialog(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Create Offer'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF5542F6),
+                  foregroundColor: Colors.white,
+                ),
               ),
-            ],
           ],
         ),
       );
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // حالة وجود بيانات: نعرض القائمة
-    // ─────────────────────────────────────────────────────────────────────
     return ListView.builder(
       itemCount: offers.length,
-      itemBuilder: (context, index) {
-        final offer = offers[index];
-        return OfferRow(offer: offer);
-      },
+      itemBuilder: (context, index) => OfferRow(offer: offers[index]),
     );
   }
 
-  Widget _buildStatCard(
-      String title, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+  String _formatNumber(int number) {
+    if (number >= 1000000) return '${(number / 1000000).toStringAsFixed(1)}M';
+    if (number >= 1000) return '${(number / 1000).toStringAsFixed(1)}K';
+    return number.toString();
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// OfferRow: صف العرض في الجدول
-// ═══════════════════════════════════════════════════════════════════════════
-class OfferRow extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════════════════════════
+// Offer Row Widget with Toggle Switch
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class OfferRow extends StatefulWidget {
   final OfferModel offer;
 
   const OfferRow({super.key, required this.offer});
 
   @override
+  State<OfferRow> createState() => _OfferRowState();
+}
+
+class _OfferRowState extends State<OfferRow> {
+  late bool _isActive;
+
+  @override
+  void initState() {
+    super.initState();
+    _isActive = widget.offer.status?.toLowerCase() == 'active';
+  }
+
+  @override
+  void didUpdateWidget(OfferRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.offer.status != widget.offer.status) {
+      _isActive = widget.offer.status?.toLowerCase() == 'active';
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: const BoxDecoration(
-        border: Border(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: _isActive ? Colors.white : Colors.grey[50],
+        border: const Border(
           bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
         ),
       ),
@@ -621,25 +922,52 @@ class OfferRow extends StatelessWidget {
         children: [
           // Offer Icon
           Container(
-            width: 50,
-            height: 50,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  _getOfferColor(offer.discountType).withOpacity(0.8),
-                  _getOfferColor(offer.discountType),
-                ],
+                colors: _isActive
+                    ? [
+                        _getOfferColor(widget.offer.discountType)
+                            .withOpacity(0.8),
+                        _getOfferColor(widget.offer.discountType),
+                      ]
+                    : [Colors.grey[400]!, Colors.grey[500]!],
               ),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: _isActive
+                  ? [
+                      BoxShadow(
+                        color: _getOfferColor(widget.offer.discountType)
+                            .withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      )
+                    ]
+                  : null,
             ),
-            child: Center(
-              child: Icon(
-                offer.discountType == 'percentage'
-                    ? Icons.percent
-                    : Icons.attach_money,
-                color: Colors.white,
-                size: 24,
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  widget.offer.discountType == 'percentage'
+                      ? Icons.percent_rounded
+                      : Icons.attach_money_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  widget.offer.discountType == 'percentage'
+                      ? '${widget.offer.discountValue.toStringAsFixed(0)}%'
+                      : '\$${widget.offer.discountValue.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 12),
@@ -651,71 +979,96 @@ class OfferRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  offer.title,
-                  style: const TextStyle(
+                  widget.offer.title,
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF1F2937),
+                    color:
+                        _isActive ? const Color(0xFF1F2937) : Colors.grey[500],
                     fontSize: 15,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (offer.description != null) ...[
-                  const SizedBox(height: 2),
+                if (widget.offer.description != null) ...[
+                  const SizedBox(height: 4),
                   Text(
-                    offer.description!,
-                    style: const TextStyle(
-                      color: Color(0xFF6B7280),
+                    widget.offer.description!,
+                    style: TextStyle(
+                      color: _isActive
+                          ? const Color(0xFF6B7280)
+                          : Colors.grey[400],
                       fontSize: 12,
                     ),
                     overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
                   ),
                 ],
               ],
             ),
           ),
 
-          // Code
+          // Applies To (Target)
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                offer.code ?? '-',
-                style: const TextStyle(
-                  color: Color(0xFF374151),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: 'monospace',
+                color: _isActive
+                    ? _getTargetColor(widget.offer.target).withOpacity(0.1)
+                    : Colors.grey[200],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _isActive
+                      ? _getTargetColor(widget.offer.target).withOpacity(0.3)
+                      : Colors.grey[300]!,
                 ),
-                overflow: TextOverflow.ellipsis,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _getTargetIcon(widget.offer.target),
+                    size: 14,
+                    color: _isActive
+                        ? _getTargetColor(widget.offer.target)
+                        : Colors.grey[500],
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      widget.offer.targetDisplayName,
+                      style: TextStyle(
+                        color: _isActive
+                            ? _getTargetColor(widget.offer.target)
+                            : Colors.grey[500],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
 
           // Discount
           Expanded(
-            child: Row(
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF5542F6).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    offer.formattedDiscount,
-                    style: const TextStyle(
-                      color: Color(0xFF5542F6),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _isActive
+                    ? const Color(0xFF10B981).withOpacity(0.1)
+                    : Colors.grey[200],
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                widget.offer.formattedDiscount,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: _isActive ? const Color(0xFF10B981) : Colors.grey[500],
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
+              ),
             ),
           ),
 
@@ -725,19 +1078,43 @@ class OfferRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${_formatDate(offer.startDate)} - ${_formatDate(offer.endDate)}',
-                  style: const TextStyle(
-                    color: Color(0xFF1F2937),
-                    fontSize: 13,
-                  ),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today_rounded,
+                      size: 14,
+                      color: _isActive
+                          ? const Color(0xFF6B7280)
+                          : Colors.grey[400],
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${_formatDate(widget.offer.startDate)} - ${_formatDate(widget.offer.endDate)}',
+                      style: TextStyle(
+                        color: _isActive
+                            ? const Color(0xFF1F2937)
+                            : Colors.grey[500],
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  _getDaysRemaining(offer.endDate),
-                  style: TextStyle(
-                    color: _getDaysRemainingColor(offer.endDate),
-                    fontSize: 11,
+                const SizedBox(height: 4),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _getDaysRemainingColor(widget.offer.endDate)
+                        .withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    _getDaysRemaining(widget.offer.endDate),
+                    style: TextStyle(
+                      color: _getDaysRemainingColor(widget.offer.endDate),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
@@ -750,80 +1127,148 @@ class OfferRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${offer.usedCount ?? 0}${offer.usageLimit != null ? '/${offer.usageLimit}' : ''}',
-                  style: const TextStyle(
-                    color: Color(0xFF1F2937),
+                  '${widget.offer.usedCount ?? 0}${widget.offer.usageLimit != null ? ' / ${widget.offer.usageLimit}' : ''}',
+                  style: TextStyle(
+                    color:
+                        _isActive ? const Color(0xFF1F2937) : Colors.grey[500],
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (offer.usageLimit != null) ...[
-                  const SizedBox(height: 4),
-                  LinearProgressIndicator(
-                    value: (offer.usedCount ?? 0) / offer.usageLimit!,
-                    backgroundColor: const Color(0xFFE5E7EB),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      _getUsageColor((offer.usedCount ?? 0) / offer.usageLimit!),
+                if (widget.offer.usageLimit != null) ...[
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (widget.offer.usedCount ?? 0) /
+                          widget.offer.usageLimit!,
+                      backgroundColor: const Color(0xFFE5E7EB),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        _getUsageColor((widget.offer.usedCount ?? 0) /
+                            widget.offer.usageLimit!),
+                      ),
+                      minHeight: 6,
                     ),
-                    minHeight: 4,
-                    borderRadius: BorderRadius.circular(2),
                   ),
                 ],
               ],
             ),
           ),
 
-          // Status
-          Expanded(
-            child: _buildStatusBadge(offer.status ?? 'Active'),
+          // Toggle Status Switch
+          SizedBox(
+            width: 80,
+            child: Center(
+              child: Transform.scale(
+                scale: 0.85,
+                child: Switch(
+                  value: _isActive,
+                  onChanged: (value) {
+                    setState(() {
+                      _isActive = value;
+                    });
+                    final newStatus = value ? 'Active' : 'Inactive';
+                    final updatedOffer = OfferModel(
+                      id: widget.offer.id,
+                      title: widget.offer.title,
+                      description: widget.offer.description,
+                      discountType: widget.offer.discountType,
+                      discountValue: widget.offer.discountValue,
+                      minimumPurchase: widget.offer.minimumPurchase,
+                      maximumDiscount: widget.offer.maximumDiscount,
+                      code: widget.offer.code,
+                      startDate: widget.offer.startDate,
+                      endDate: widget.offer.endDate,
+                      usageLimit: widget.offer.usageLimit,
+                      usedCount: widget.offer.usedCount,
+                      status: newStatus,
+                    );
+                    context.read<OfferCubit>().updateOffer(updatedOffer);
+                  },
+                  activeColor: const Color(0xFF10B981),
+                  activeTrackColor: const Color(0xFF10B981).withOpacity(0.3),
+                  inactiveThumbColor: Colors.grey[400],
+                  inactiveTrackColor: Colors.grey[300],
+                ),
+              ),
+            ),
           ),
 
           // Actions
           SizedBox(
-            width: 100,
+            width: 140,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                IconButton(
-                  onPressed: () {
-                    // ─────────────────────────────────────────────────────
-                    // نمرر الـ Cubit لنافذة التعديل
-                    // ─────────────────────────────────────────────────────
-                    final cubit = context.read<OfferCubit>();
-                    showDialog(
-                      context: context,
-                      builder: (dialogContext) => BlocProvider.value(
-                        value: cubit,
-                        child: UpdateOfferDialog(offer: offer),
-                      ),
-                    );
+                _buildActionButton(
+                  icon: Icons.visibility_outlined,
+                  color: const Color(0xFF3B82F6),
+                  tooltip: 'View',
+                  onTap: () {
+                    // View offer details
                   },
-                  icon: const Icon(Icons.edit_outlined),
+                ),
+                _buildActionButton(
+                  icon: Icons.edit_outlined,
                   color: const Color(0xFF5542F6),
                   tooltip: 'Edit',
-                ),
-                IconButton(
-                  onPressed: () {
-                    // ─────────────────────────────────────────────────────
-                    // نمرر الـ Cubit لنافذة الحذف
-                    // ─────────────────────────────────────────────────────
+                  onTap: () {
                     final cubit = context.read<OfferCubit>();
                     showDialog(
                       context: context,
                       builder: (dialogContext) => BlocProvider.value(
                         value: cubit,
-                        child: DeleteOfferDialog(offer: offer),
+                        child: UpdateOfferDialog(offer: widget.offer),
                       ),
                     );
                   },
-                  icon: const Icon(Icons.delete_outline),
+                ),
+                _buildActionButton(
+                  icon: Icons.copy_outlined,
+                  color: const Color(0xFFF59E0B),
+                  tooltip: 'Duplicate',
+                  onTap: () {
+                    // Duplicate offer
+                  },
+                ),
+                _buildActionButton(
+                  icon: Icons.delete_outline,
                   color: const Color(0xFFEF4444),
                   tooltip: 'Delete',
+                  onTap: () {
+                    final cubit = context.read<OfferCubit>();
+                    showDialog(
+                      context: context,
+                      builder: (dialogContext) => BlocProvider.value(
+                        value: cubit,
+                        child: DeleteOfferDialog(offer: widget.offer),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          child: Icon(icon, color: color, size: 18),
+        ),
       ),
     );
   }
@@ -840,18 +1285,54 @@ class OfferRow extends StatelessWidget {
     return const Color(0xFF10B981);
   }
 
+  Color _getTargetColor(DiscountTarget target) {
+    switch (target) {
+      case DiscountTarget.all:
+        return const Color(0xFF10B981);
+      case DiscountTarget.category:
+        return const Color(0xFF5542F6);
+      case DiscountTarget.product:
+        return const Color(0xFFF59E0B);
+    }
+  }
+
+  IconData _getTargetIcon(DiscountTarget target) {
+    switch (target) {
+      case DiscountTarget.all:
+        return Icons.apps_rounded;
+      case DiscountTarget.category:
+        return Icons.category_rounded;
+      case DiscountTarget.product:
+        return Icons.inventory_2_rounded;
+    }
+  }
+
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return '${months[date.month - 1]} ${date.day}';
   }
 
   String _getDaysRemaining(DateTime endDate) {
     final now = DateTime.now();
     final difference = endDate.difference(now).inDays;
 
-    if (difference < 0) return 'Expired ${-difference} days ago';
+    if (difference < 0) return 'Expired ${-difference}d ago';
     if (difference == 0) return 'Expires today';
-    if (difference == 1) return '1 day remaining';
-    return '$difference days remaining';
+    if (difference == 1) return '1 day left';
+    return '$difference days left';
   }
 
   Color _getDaysRemainingColor(DateTime endDate) {
@@ -859,49 +1340,5 @@ class OfferRow extends StatelessWidget {
     if (difference < 0) return const Color(0xFFEF4444);
     if (difference <= 3) return const Color(0xFFF59E0B);
     return const Color(0xFF10B981);
-  }
-
-  Widget _buildStatusBadge(String status) {
-    Color bgColor;
-    Color textColor;
-
-    switch (status.toLowerCase()) {
-      case 'active':
-        bgColor = const Color(0xFFD1FAE5);
-        textColor = const Color(0xFF059669);
-        break;
-      case 'inactive':
-        bgColor = const Color(0xFFFEE2E2);
-        textColor = const Color(0xFFDC2626);
-        break;
-      case 'scheduled':
-        bgColor = const Color(0xFFFEF3C7);
-        textColor = const Color(0xFFD97706);
-        break;
-      case 'expired':
-        bgColor = const Color(0xFFF3F4F6);
-        textColor = const Color(0xFF6B7280);
-        break;
-      default:
-        bgColor = const Color(0xFFF3F4F6);
-        textColor = const Color(0xFF6B7280);
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        status,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
   }
 }
