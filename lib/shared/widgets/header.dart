@@ -72,9 +72,11 @@ class Header extends StatelessWidget {
                 children: [
                   if (!Responsive.isMobile(context))
                     IconButton(
-                      onPressed: () {},
+                      onPressed: () => context.go('/support-chat'),
+                      tooltip: 'Support Chat',
                       icon: Badge(
                         isLabelVisible: true,
+                        label: const Text('5'),
                         child:
                             SvgPicture.asset("assets/icons/message_light.svg"),
                       ),

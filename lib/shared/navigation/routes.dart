@@ -23,6 +23,7 @@ import 'package:core_dashboard/pages/products/data/repositories/product_reposito
 import 'package:core_dashboard/pages/products/logic/cubit/product_cubit.dart';
 import 'package:core_dashboard/pages/products/view/products_page.dart';
 import 'package:core_dashboard/pages/reports/view/reports_page.dart';
+import 'package:core_dashboard/pages/support_chat/view/support_chat_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -104,6 +105,10 @@ final routerConfig = GoRouter(
     GoRoute(
       path: '/reports',
       builder: (context, state) => const ReportsPage(),
+    ),
+    GoRoute(
+      path: '/support-chat',
+      builder: (context, state) => const SupportChatPage(),
     ),
 
     // GoRoute(
