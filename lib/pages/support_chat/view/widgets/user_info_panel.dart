@@ -1,8 +1,8 @@
+import 'package:core_dashboard/pages/support_chat/data/model/chat_room_model.dart';
 import 'package:flutter/material.dart';
-import 'conversation_list.dart';
 
 class UserInfoPanel extends StatelessWidget {
-  final ConversationModel? conversation;
+  final ChatRoomModel? conversation;
 
   const UserInfoPanel({
     super.key,
@@ -83,14 +83,14 @@ class UserInfoPanel extends StatelessWidget {
               CircleAvatar(
                 radius: 40,
                 backgroundColor: const Color(0xFF5542F6).withValues(alpha: 0.1),
-                backgroundImage: conversation!.userAvatar.isNotEmpty
-                    ? NetworkImage(conversation!.userAvatar)
+                backgroundImage: conversation!.userAvatar != null &&
+                        conversation!.userAvatar!.isNotEmpty
+                    ? NetworkImage(conversation!.userAvatar!)
                     : null,
-                child: conversation!.userAvatar.isEmpty
+                child: conversation!.userAvatar == null ||
+                        conversation!.userAvatar!.isEmpty
                     ? Text(
-                        conversation!.userName.isNotEmpty
-                            ? conversation!.userName[0].toUpperCase()
-                            : '?',
+                        conversation!.userInitial,
                         style: const TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
@@ -117,7 +117,8 @@ class UserInfoPanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            conversation!.userName,
+            conversation!.userName ??
+                'User ${conversation!.userId?.substring(0, 8) ?? ""}',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -162,11 +163,25 @@ class UserInfoPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        _buildInfoRow(Icons.email_outlined, 'Email', 'customer@email.com'),
+        _buildInfoRow(
+          Icons.email_outlined,
+          'Email',
+          conversation!.userEmail ?? 'No email available',
+        ),
         const SizedBox(height: 10),
-        _buildInfoRow(Icons.phone_outlined, 'Phone', '+1 234 567 8900'),
+        _buildInfoRow(
+          Icons.person_outline,
+          'User ID',
+          conversation!.userId?.substring(0, 8) ?? 'N/A',
+        ),
         const SizedBox(height: 10),
-        _buildInfoRow(Icons.location_on_outlined, 'Location', 'New York, USA'),
+        _buildInfoRow(
+          Icons.access_time,
+          'Member Since',
+          conversation!.createdAt != null
+              ? '${conversation!.createdAt!.day}/${conversation!.createdAt!.month}/${conversation!.createdAt!.year}'
+              : 'N/A',
+        ),
       ],
     );
   }
@@ -267,11 +282,22 @@ class UserInfoPanel extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        _buildTicketRow('Priority', 'Medium'),
+        _buildTicketRow(
+          'Unread',
+          '${conversation!.unreadCount} messages',
+        ),
         const SizedBox(height: 8),
-        _buildTicketRow('Created', '2 days ago'),
+        _buildTicketRow(
+          'Last Message',
+          conversation!.formattedLastMessageTime.isNotEmpty
+              ? conversation!.formattedLastMessageTime
+              : 'N/A',
+        ),
         const SizedBox(height: 8),
-        _buildTicketRow('Category', 'Order Issue'),
+        _buildTicketRow(
+          'Has Admin',
+          conversation!.hasAdmin ? 'Yes' : 'Not assigned',
+        ),
       ],
     );
   }

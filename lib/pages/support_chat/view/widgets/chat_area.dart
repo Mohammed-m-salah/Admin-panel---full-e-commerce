@@ -1,30 +1,12 @@
+import 'package:core_dashboard/pages/support_chat/data/model/chat_message_model.dart';
+import 'package:core_dashboard/pages/support_chat/data/model/chat_room_model.dart';
 import 'package:flutter/material.dart';
-import 'conversation_list.dart';
-
-class ChatMessage {
-  final String id;
-  final String content;
-  final DateTime timestamp;
-  final bool isFromAdmin;
-  final bool isRead;
-  final String? attachmentUrl;
-  final String? attachmentType;
-
-  ChatMessage({
-    required this.id,
-    required this.content,
-    required this.timestamp,
-    required this.isFromAdmin,
-    this.isRead = false,
-    this.attachmentUrl,
-    this.attachmentType,
-  });
-}
 
 class ChatArea extends StatefulWidget {
-  final ConversationModel? selectedConversation;
-  final List<ChatMessage> messages;
+  final ChatRoomModel? selectedConversation;
+  final List<ChatMessageModel> messages;
   final TextEditingController messageController;
+  final bool isSending;
   final Function(String) onSendMessage;
   final VoidCallback onAttachFile;
   final Function(String) onStatusChange;
@@ -34,6 +16,7 @@ class ChatArea extends StatefulWidget {
     required this.selectedConversation,
     required this.messages,
     required this.messageController,
+    this.isSending = false,
     required this.onSendMessage,
     required this.onAttachFile,
     required this.onStatusChange,
@@ -47,6 +30,15 @@ class _ChatAreaState extends State<ChatArea> {
   final ScrollController _scrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    // التمرير للأسفل بعد بناء الـ widget
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
@@ -55,7 +47,11 @@ class _ChatAreaState extends State<ChatArea> {
   @override
   void didUpdateWidget(ChatArea oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.messages.length != oldWidget.messages.length) {
+    // التمرير للأسفل عند تغيير الرسائل أو تغيير المحادثة
+    final messagesChanged = widget.messages.length != oldWidget.messages.length;
+    final conversationChanged = widget.selectedConversation?.id != oldWidget.selectedConversation?.id;
+
+    if (messagesChanged || conversationChanged) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToBottom();
       });
@@ -168,6 +164,10 @@ class _ChatAreaState extends State<ChatArea> {
   }
 
   Widget _buildUserInfo() {
+    final conversation = widget.selectedConversation!;
+    final hasAvatar =
+        conversation.userAvatar != null && conversation.userAvatar!.isNotEmpty;
+
     return Row(
       children: [
         Stack(
@@ -175,14 +175,11 @@ class _ChatAreaState extends State<ChatArea> {
             CircleAvatar(
               radius: 24,
               backgroundColor: const Color(0xFF5542F6).withValues(alpha: 0.1),
-              backgroundImage: widget.selectedConversation!.userAvatar.isNotEmpty
-                  ? NetworkImage(widget.selectedConversation!.userAvatar)
-                  : null,
-              child: widget.selectedConversation!.userAvatar.isEmpty
+              backgroundImage:
+                  hasAvatar ? NetworkImage(conversation.userAvatar!) : null,
+              child: !hasAvatar
                   ? Text(
-                      widget.selectedConversation!.userName.isNotEmpty
-                          ? widget.selectedConversation!.userName[0].toUpperCase()
-                          : '?',
+                      conversation.userInitial,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -191,7 +188,7 @@ class _ChatAreaState extends State<ChatArea> {
                     )
                   : null,
             ),
-            if (widget.selectedConversation!.isOnline)
+            if (conversation.isOnline)
               Positioned(
                 right: 0,
                 bottom: 0,
@@ -212,7 +209,7 @@ class _ChatAreaState extends State<ChatArea> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.selectedConversation!.userName,
+              conversation.userName ?? 'User ${conversation.userId?.substring(0, 8) ?? ""}',
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -226,7 +223,7 @@ class _ChatAreaState extends State<ChatArea> {
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: widget.selectedConversation!.isOnline
+                    color: conversation.isOnline
                         ? const Color(0xFF10B981)
                         : const Color(0xFF9CA3AF),
                     shape: BoxShape.circle,
@@ -234,10 +231,10 @@ class _ChatAreaState extends State<ChatArea> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  widget.selectedConversation!.isOnline ? 'Online now' : 'Offline',
+                  conversation.isOnline ? 'Online now' : 'Offline',
                   style: TextStyle(
                     fontSize: 13,
-                    color: widget.selectedConversation!.isOnline
+                    color: conversation.isOnline
                         ? const Color(0xFF10B981)
                         : const Color(0xFF6B7280),
                   ),
@@ -273,7 +270,8 @@ class _ChatAreaState extends State<ChatArea> {
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert, color: Color(0xFF6B7280)),
           tooltip: 'More options',
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           itemBuilder: (context) => [
             _buildPopupItem(Icons.block_outlined, 'Block User', 'block'),
             _buildPopupItem(Icons.delete_outline, 'Delete Chat', 'delete'),
@@ -307,7 +305,8 @@ class _ChatAreaState extends State<ChatArea> {
     );
   }
 
-  PopupMenuItem<String> _buildPopupItem(IconData icon, String text, String value) {
+  PopupMenuItem<String> _buildPopupItem(
+      IconData icon, String text, String value) {
     return PopupMenuItem(
       value: value,
       child: Row(
@@ -383,8 +382,8 @@ class _ChatAreaState extends State<ChatArea> {
           children: [
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF3F4F6),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -415,30 +414,21 @@ class _ChatAreaState extends State<ChatArea> {
       );
     }
 
-    // Group messages by date
-    final groupedMessages = <DateTime, List<ChatMessage>>{};
-    for (var message in widget.messages) {
-      final date = DateTime(
-        message.timestamp.year,
-        message.timestamp.month,
-        message.timestamp.day,
-      );
-      groupedMessages.putIfAbsent(date, () => []).add(message);
-    }
-
-    final sortedDates = groupedMessages.keys.toList()..sort();
+    // تجميع الرسائل حسب التاريخ باستخدام الـ extension
+    final groupedMessages = widget.messages.groupByDate();
+    final sortedDateKeys = groupedMessages.keys.toList();
 
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.all(20),
-      itemCount: sortedDates.length,
+      itemCount: sortedDateKeys.length,
       itemBuilder: (context, dateIndex) {
-        final date = sortedDates[dateIndex];
-        final messagesForDate = groupedMessages[date]!;
+        final dateKey = sortedDateKeys[dateIndex];
+        final messagesForDate = groupedMessages[dateKey]!;
 
         return Column(
           children: [
-            _buildDateSeparator(date),
+            _buildDateSeparatorFromKey(dateKey),
             ...messagesForDate.map((message) => _MessageBubble(
                   message: message,
                   userName: widget.selectedConversation?.userName ?? '',
@@ -449,21 +439,8 @@ class _ChatAreaState extends State<ChatArea> {
     );
   }
 
-  Widget _buildDateSeparator(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final messageDate = DateTime(date.year, date.month, date.day);
-
-    String dateText;
-    if (messageDate == today) {
-      dateText = 'Today';
-    } else if (messageDate == yesterday) {
-      dateText = 'Yesterday';
-    } else {
-      dateText = '${date.day}/${date.month}/${date.year}';
-    }
-
+  // بناء فاصل التاريخ من النص
+  Widget _buildDateSeparatorFromKey(String dateKey) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Row(
@@ -477,7 +454,7 @@ class _ChatAreaState extends State<ChatArea> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              dateText,
+              dateKey,
               style: const TextStyle(
                 fontSize: 12,
                 color: Color(0xFF6B7280),
@@ -544,7 +521,8 @@ class _ChatAreaState extends State<ChatArea> {
     );
   }
 
-  Widget _buildInputAction(IconData icon, String tooltip, VoidCallback onPressed) {
+  Widget _buildInputAction(
+      IconData icon, String tooltip, VoidCallback onPressed) {
     return Padding(
       padding: const EdgeInsets.only(right: 4),
       child: IconButton(
@@ -562,11 +540,20 @@ class _ChatAreaState extends State<ChatArea> {
   Widget _buildSendButton() {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF5542F6), Color(0xFF7C3AED)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: widget.isSending
+            ? LinearGradient(
+                colors: [
+                  const Color(0xFF5542F6).withValues(alpha: 0.6),
+                  const Color(0xFF7C3AED).withValues(alpha: 0.6),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : const LinearGradient(
+                colors: [Color(0xFF5542F6), Color(0xFF7C3AED)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -579,16 +566,27 @@ class _ChatAreaState extends State<ChatArea> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            final text = widget.messageController.text.trim();
-            if (text.isNotEmpty) {
-              widget.onSendMessage(text);
-            }
-          },
+          onTap: widget.isSending
+              ? null
+              : () {
+                  final text = widget.messageController.text.trim();
+                  if (text.isNotEmpty) {
+                    widget.onSendMessage(text);
+                  }
+                },
           borderRadius: BorderRadius.circular(14),
-          child: const Padding(
-            padding: EdgeInsets.all(12),
-            child: Icon(Icons.send_rounded, color: Colors.white, size: 22),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: widget.isSending
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.send_rounded, color: Colors.white, size: 22),
           ),
         ),
       ),
@@ -596,8 +594,9 @@ class _ChatAreaState extends State<ChatArea> {
   }
 }
 
+// ويدجت فقاعة الرسالة
 class _MessageBubble extends StatelessWidget {
-  final ChatMessage message;
+  final ChatMessageModel message;
   final String userName;
 
   const _MessageBubble({
@@ -607,7 +606,7 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isAdmin = message.isFromAdmin;
+    final isAdmin = message.isAdmin;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -633,7 +632,8 @@ class _MessageBubble extends StatelessWidget {
                   constraints: BoxConstraints(
                     maxWidth: MediaQuery.of(context).size.width * 0.5,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: isAdmin
                         ? const Color(0xFF5542F6)
@@ -652,19 +652,13 @@ class _MessageBubble extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (message.attachmentUrl != null) _buildAttachment(isAdmin),
-                      Text(
-                        message.content,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isAdmin ? Colors.white : const Color(0xFF1F2937),
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    message.message,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isAdmin ? Colors.white : const Color(0xFF1F2937),
+                      height: 1.4,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -672,7 +666,7 @@ class _MessageBubble extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _formatTime(message.timestamp),
+                      message.formattedTime,
                       style: const TextStyle(
                         fontSize: 11,
                         color: Color(0xFF9CA3AF),
@@ -722,49 +716,5 @@ class _MessageBubble extends StatelessWidget {
         child: Icon(icon, size: 20, color: color),
       ),
     );
-  }
-
-  Widget _buildAttachment(bool isAdmin) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: isAdmin
-            ? Colors.white.withValues(alpha: 0.1)
-            : const Color(0xFFE5E7EB),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.insert_drive_file_outlined,
-            size: 18,
-            color: isAdmin ? Colors.white : const Color(0xFF6B7280),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Attachment',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: isAdmin ? Colors.white : const Color(0xFF6B7280),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Icon(
-            Icons.download_outlined,
-            size: 16,
-            color: isAdmin ? Colors.white : const Color(0xFF6B7280),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatTime(DateTime time) {
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
   }
 }

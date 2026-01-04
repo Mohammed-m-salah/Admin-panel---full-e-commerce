@@ -1,199 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import 'widgets/conversation_list.dart';
+import '../data/model/chat_room_model.dart';
+import '../data/repository/chat_repository.dart';
+import '../logic/cubit/chat_cubit.dart';
+import '../logic/cubit/chat_state.dart';
+import 'widgets/chat_room_list.dart';
 import 'widgets/chat_area.dart';
 import 'widgets/user_info_panel.dart';
 
-class SupportChatPage extends StatefulWidget {
+class SupportChatPage extends StatelessWidget {
   const SupportChatPage({super.key});
 
   @override
-  State<SupportChatPage> createState() => _SupportChatPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => ChatCubit(ChatRepository())..subscribeToChatRooms(),
+      child: const _SupportChatView(),
+    );
+  }
 }
 
-class _SupportChatPageState extends State<SupportChatPage> {
+class _SupportChatView extends StatefulWidget {
+  const _SupportChatView();
+
+  @override
+  State<_SupportChatView> createState() => _SupportChatViewState();
+}
+
+class _SupportChatViewState extends State<_SupportChatView> {
   final TextEditingController _messageController = TextEditingController();
   String _searchQuery = '';
-  String _selectedFilter = 'All';
-  ConversationModel? _selectedConversation;
-
-  // Sample data
-  final List<ConversationModel> _allConversations = [
-    ConversationModel(
-      id: '1001',
-      userName: 'Ahmed Hassan',
-      userAvatar: '',
-      lastMessage: 'I have an issue with my order #12345',
-      lastMessageTime: DateTime.now().subtract(const Duration(minutes: 2)),
-      unreadCount: 3,
-      isOnline: true,
-      status: 'open',
-    ),
-    ConversationModel(
-      id: '1002',
-      userName: 'Sarah Johnson',
-      userAvatar: '',
-      lastMessage: 'When will my refund be processed?',
-      lastMessageTime: DateTime.now().subtract(const Duration(minutes: 15)),
-      unreadCount: 1,
-      isOnline: true,
-      status: 'pending',
-    ),
-    ConversationModel(
-      id: '1003',
-      userName: 'Mohammed Ali',
-      userAvatar: '',
-      lastMessage: 'Thank you for your help!',
-      lastMessageTime: DateTime.now().subtract(const Duration(hours: 1)),
-      unreadCount: 0,
-      isOnline: false,
-      status: 'resolved',
-    ),
-    ConversationModel(
-      id: '1004',
-      userName: 'Emily Davis',
-      userAvatar: '',
-      lastMessage: 'The product I received is damaged',
-      lastMessageTime: DateTime.now().subtract(const Duration(hours: 2)),
-      unreadCount: 5,
-      isOnline: true,
-      status: 'open',
-    ),
-    ConversationModel(
-      id: '1005',
-      userName: 'Omar Khalid',
-      userAvatar: '',
-      lastMessage: 'How can I track my shipment?',
-      lastMessageTime: DateTime.now().subtract(const Duration(hours: 3)),
-      unreadCount: 0,
-      isOnline: false,
-      status: 'pending',
-    ),
-    ConversationModel(
-      id: '1006',
-      userName: 'Lisa Anderson',
-      userAvatar: '',
-      lastMessage: 'I want to change my delivery address',
-      lastMessageTime: DateTime.now().subtract(const Duration(hours: 5)),
-      unreadCount: 2,
-      isOnline: false,
-      status: 'open',
-    ),
-    ConversationModel(
-      id: '1007',
-      userName: 'Yusuf Ibrahim',
-      userAvatar: '',
-      lastMessage: 'Payment issue resolved, thanks!',
-      lastMessageTime: DateTime.now().subtract(const Duration(days: 1)),
-      unreadCount: 0,
-      isOnline: false,
-      status: 'resolved',
-    ),
-    ConversationModel(
-      id: '1008',
-      userName: 'Maria Garcia',
-      userAvatar: '',
-      lastMessage: 'Can I get a discount on bulk orders?',
-      lastMessageTime: DateTime.now().subtract(const Duration(days: 1)),
-      unreadCount: 1,
-      isOnline: true,
-      status: 'open',
-    ),
-  ];
-
-  List<ChatMessage> _messages = [];
-
-  List<ConversationModel> get _filteredConversations {
-    return _allConversations.where((conv) {
-      final matchesSearch = conv.userName
-              .toLowerCase()
-              .contains(_searchQuery.toLowerCase()) ||
-          conv.lastMessage.toLowerCase().contains(_searchQuery.toLowerCase());
-
-      final matchesFilter = _selectedFilter == 'All' ||
-          conv.status.toLowerCase() == _selectedFilter.toLowerCase();
-
-      return matchesSearch && matchesFilter;
-    }).toList();
-  }
-
-  void _loadMessagesForConversation(ConversationModel conversation) {
-    // Sample messages for the selected conversation
-    setState(() {
-      _messages = [
-        ChatMessage(
-          id: '1',
-          content: 'Hello, I need help with my order',
-          timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-          isFromAdmin: false,
-        ),
-        ChatMessage(
-          id: '2',
-          content:
-              'Hi! I\'d be happy to help you. Could you please provide your order number?',
-          timestamp:
-              DateTime.now().subtract(const Duration(hours: 1, minutes: 55)),
-          isFromAdmin: true,
-          isRead: true,
-        ),
-        ChatMessage(
-          id: '3',
-          content: 'My order number is #12345',
-          timestamp:
-              DateTime.now().subtract(const Duration(hours: 1, minutes: 50)),
-          isFromAdmin: false,
-        ),
-        ChatMessage(
-          id: '4',
-          content:
-              'Thank you! I can see your order. It was shipped yesterday and should arrive within 2-3 business days.',
-          timestamp:
-              DateTime.now().subtract(const Duration(hours: 1, minutes: 45)),
-          isFromAdmin: true,
-          isRead: true,
-        ),
-        ChatMessage(
-          id: '5',
-          content: 'Can you provide me with the tracking number?',
-          timestamp:
-              DateTime.now().subtract(const Duration(hours: 1, minutes: 30)),
-          isFromAdmin: false,
-        ),
-        ChatMessage(
-          id: '6',
-          content:
-              'Of course! Your tracking number is: TRK789456123. You can track it on our website.',
-          timestamp:
-              DateTime.now().subtract(const Duration(hours: 1, minutes: 25)),
-          isFromAdmin: true,
-          isRead: true,
-        ),
-        ChatMessage(
-          id: '7',
-          content: conversation.lastMessage,
-          timestamp: conversation.lastMessageTime,
-          isFromAdmin: false,
-        ),
-      ];
-    });
-  }
-
-  void _sendMessage(String content) {
-    if (content.trim().isEmpty) return;
-
-    setState(() {
-      _messages.add(ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        content: content,
-        timestamp: DateTime.now(),
-        isFromAdmin: true,
-        isRead: false,
-      ));
-    });
-
-    _messageController.clear();
-  }
 
   @override
   void dispose() {
@@ -205,25 +43,53 @@ class _SupportChatPageState extends State<SupportChatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 24),
-            Expanded(child: _buildChatLayout()),
-          ],
-        ),
+      body: BlocConsumer<ChatCubit, ChatState>(
+        listener: (context, state) {
+          if (state is ChatError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          if (state is ChatOperationSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(context, state),
+                const SizedBox(height: 24),
+                Expanded(child: _buildChatLayout(context, state)),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildHeader() {
-    final openCount =
-        _allConversations.where((c) => c.status == 'open').length;
-    final pendingCount =
-        _allConversations.where((c) => c.status == 'pending').length;
+  Widget _buildHeader(BuildContext context, ChatState state) {
+    int openCount = 0;
+    int pendingCount = 0;
+
+    if (state is ChatRoomsLoaded) {
+      openCount = state.openCount;
+      pendingCount = state.pendingCount;
+    } else if (state is ChatConversationLoaded) {
+      openCount = state.chatRooms.where((r) => r.status == 'open').length;
+      pendingCount = state.chatRooms.where((r) => r.status == 'pending').length;
+    }
 
     return Row(
       children: [
@@ -274,9 +140,12 @@ class _SupportChatPageState extends State<SupportChatPage> {
         _buildStatBadge('Pending', pendingCount, const Color(0xFFF59E0B)),
         const SizedBox(width: 16),
         ElevatedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.settings_outlined, size: 20),
-          label: const Text('Settings'),
+          onPressed: () {
+            // إعادة تحميل البيانات
+            context.read<ChatCubit>().loadChatRooms();
+          },
+          icon: const Icon(Icons.refresh, size: 20),
+          label: const Text('Refresh'),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF5542F6),
             foregroundColor: Colors.white,
@@ -322,77 +191,121 @@ class _SupportChatPageState extends State<SupportChatPage> {
     );
   }
 
-  Widget _buildChatLayout() {
+  Widget _buildChatLayout(BuildContext context, ChatState state) {
+    // حالة التحميل
+    if (state is ChatLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF5542F6),
+        ),
+      );
+    }
+
+    // حالة الخطأ الأولي
+    if (state is ChatInitial) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF5542F6),
+        ),
+      );
+    }
+
+    // استخراج البيانات من الحالة
+    List<ChatRoomModel> chatRooms = [];
+    ChatRoomModel? selectedRoom;
+    List<dynamic> messages = [];
+    String currentFilter = 'All';
+    bool isSending = false;
+
+    if (state is ChatRoomsLoaded) {
+      chatRooms = state.chatRooms;
+      currentFilter = _capitalizeFirst(state.currentFilter);
+    } else if (state is ChatConversationLoaded) {
+      chatRooms = state.chatRooms;
+      selectedRoom = state.selectedRoom;
+      messages = state.messages;
+      currentFilter = _capitalizeFirst(state.currentFilter);
+      isSending = state.isSendingMessage;
+    }
+
+    final filteredConversations = chatRooms.where((conv) {
+      final matchesSearch = (conv.userName ?? '')
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase()) ||
+          (conv.lastMessage ?? '')
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase());
+      return matchesSearch;
+    }).toList();
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Conversations List
+        // قائمة المحادثات
         SizedBox(
           width: 360,
-          child: ConversationList(
-            conversations: _filteredConversations,
-            selectedConversationId: _selectedConversation?.id,
+          child: ChatRoomList(
+            conversations: filteredConversations,
+            selectedConversationId: selectedRoom?.id,
             onConversationSelected: (conversation) {
-              setState(() {
-                _selectedConversation = conversation;
-              });
-              _loadMessagesForConversation(conversation);
+              context.read<ChatCubit>().selectChatRoom(conversation);
             },
             searchQuery: _searchQuery,
             onSearchChanged: (query) {
               setState(() {
                 _searchQuery = query;
               });
+              if (query.isNotEmpty) {
+                context.read<ChatCubit>().searchChatRooms(query);
+              } else {
+                context.read<ChatCubit>().loadChatRooms();
+              }
             },
-            selectedFilter: _selectedFilter,
+            selectedFilter: currentFilter,
             onFilterChanged: (filter) {
-              setState(() {
-                _selectedFilter = filter;
-              });
+              context.read<ChatCubit>().filterByStatus(filter.toLowerCase());
             },
           ),
         ),
         const SizedBox(width: 24),
-        // Chat Area
         Expanded(
           child: ChatArea(
-            selectedConversation: _selectedConversation,
-            messages: _messages,
+            selectedConversation: selectedRoom,
+            messages: messages.cast(),
             messageController: _messageController,
-            onSendMessage: _sendMessage,
+            isSending: isSending,
+            onSendMessage: (content) {
+              if (content.trim().isEmpty) return;
+              context.read<ChatCubit>().sendMessage(
+                    message: content,
+                    adminId: '1055fd29-cae5-4871-8209-ae6dad91bbaf',
+                  );
+              _messageController.clear();
+            },
             onAttachFile: () {
-              // Handle file attachment
+              // TODO: تنفيذ رفع الملفات
             },
             onStatusChange: (status) {
-              if (_selectedConversation != null) {
-                setState(() {
-                  final index = _allConversations.indexWhere(
-                      (c) => c.id == _selectedConversation!.id);
-                  if (index != -1) {
-                    _allConversations[index] = ConversationModel(
-                      id: _selectedConversation!.id,
-                      userName: _selectedConversation!.userName,
-                      userAvatar: _selectedConversation!.userAvatar,
-                      lastMessage: _selectedConversation!.lastMessage,
-                      lastMessageTime: _selectedConversation!.lastMessageTime,
-                      unreadCount: _selectedConversation!.unreadCount,
-                      isOnline: _selectedConversation!.isOnline,
-                      status: status,
-                    );
-                    _selectedConversation = _allConversations[index];
-                  }
-                });
+              if (selectedRoom != null) {
+                context
+                    .read<ChatCubit>()
+                    .updateRoomStatus(selectedRoom.id!, status);
               }
             },
           ),
         ),
         const SizedBox(width: 24),
-        // User Info Panel
+        // لوحة معلومات المستخدم
         SizedBox(
           width: 300,
-          child: UserInfoPanel(conversation: _selectedConversation),
+          child: UserInfoPanel(conversation: selectedRoom),
         ),
       ],
     );
+  }
+
+  String _capitalizeFirst(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
   }
 }

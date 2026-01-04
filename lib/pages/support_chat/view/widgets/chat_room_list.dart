@@ -1,37 +1,17 @@
 import 'package:flutter/material.dart';
 
-class ConversationModel {
-  final String id;
-  final String userName;
-  final String userAvatar;
-  final String lastMessage;
-  final DateTime lastMessageTime;
-  final int unreadCount;
-  final bool isOnline;
-  final String status; // open, resolved, pending
+import '../../data/model/chat_room_model.dart';
 
-  ConversationModel({
-    required this.id,
-    required this.userName,
-    required this.userAvatar,
-    required this.lastMessage,
-    required this.lastMessageTime,
-    this.unreadCount = 0,
-    this.isOnline = false,
-    this.status = 'open',
-  });
-}
-
-class ConversationList extends StatelessWidget {
-  final List<ConversationModel> conversations;
+class ChatRoomList extends StatelessWidget {
+  final List<ChatRoomModel> conversations;
   final String? selectedConversationId;
-  final Function(ConversationModel) onConversationSelected;
+  final Function(ChatRoomModel) onConversationSelected;
   final String searchQuery;
   final Function(String) onSearchChanged;
   final String selectedFilter;
   final Function(String) onFilterChanged;
 
-  const ConversationList({
+  const ChatRoomList({
     super.key,
     required this.conversations,
     required this.selectedConversationId,
@@ -123,14 +103,16 @@ class ConversationList extends StatelessWidget {
         decoration: InputDecoration(
           hintText: 'Search conversations...',
           hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
-          prefixIcon: const Icon(Icons.search, color: Color(0xFF9CA3AF), size: 20),
+          prefixIcon:
+              const Icon(Icons.search, color: Color(0xFF9CA3AF), size: 20),
           filled: true,
           fillColor: const Color(0xFFF9FAFB),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: BorderSide.none,
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),
     );
@@ -239,7 +221,7 @@ class ConversationList extends StatelessWidget {
 }
 
 class _ConversationTile extends StatelessWidget {
-  final ConversationModel conversation;
+  final ChatRoomModel conversation;
   final bool isSelected;
   final VoidCallback onTap;
 
@@ -284,14 +266,14 @@ class _ConversationTile extends StatelessWidget {
         CircleAvatar(
           radius: 24,
           backgroundColor: const Color(0xFF5542F6).withValues(alpha: 0.1),
-          backgroundImage: conversation.userAvatar.isNotEmpty
-              ? NetworkImage(conversation.userAvatar)
+          backgroundImage: conversation.userAvatar != null &&
+                  conversation.userAvatar!.isNotEmpty
+              ? NetworkImage(conversation.userAvatar!)
               : null,
-          child: conversation.userAvatar.isEmpty
+          child: conversation.userAvatar == null ||
+                  conversation.userAvatar!.isEmpty
               ? Text(
-                  conversation.userName.isNotEmpty
-                      ? conversation.userName[0].toUpperCase()
-                      : '?',
+                  conversation.userInitial,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -326,7 +308,8 @@ class _ConversationTile extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                conversation.userName,
+                conversation.userName ??
+                    'User ${conversation.userId?.substring(0, 8) ?? ""}',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: conversation.unreadCount > 0
@@ -342,7 +325,7 @@ class _ConversationTile extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          conversation.lastMessage,
+          conversation.lastMessage ?? 'No messages yet',
           style: TextStyle(
             fontSize: 13,
             color: conversation.unreadCount > 0
@@ -390,7 +373,7 @@ class _ConversationTile extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
-          _formatTime(conversation.lastMessageTime),
+          conversation.formattedLastMessageTime,
           style: const TextStyle(
             fontSize: 11,
             color: Color(0xFF9CA3AF),
@@ -417,22 +400,5 @@ class _ConversationTile extends StatelessWidget {
           ),
       ],
     );
-  }
-
-  String _formatTime(DateTime time) {
-    final now = DateTime.now();
-    final difference = now.difference(time);
-
-    if (difference.inMinutes < 1) {
-      return 'Just now';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else {
-      return '${time.day}/${time.month}/${time.year}';
-    }
   }
 }
