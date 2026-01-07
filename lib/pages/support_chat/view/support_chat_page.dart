@@ -91,71 +91,93 @@ class _SupportChatViewState extends State<_SupportChatView> {
       pendingCount = state.chatRooms.where((r) => r.status == 'pending').length;
     }
 
-    return Row(
-      children: [
-        Container(
-          margin: const EdgeInsets.only(right: 16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: IconButton(
-            onPressed: () {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go('/entry-point');
-              }
-            },
-            icon: const Icon(Icons.arrow_back_rounded),
-            color: const Color(0xFF6B7280),
-            tooltip: 'Back',
-          ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Support Center',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 800;
+
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: IconButton(
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/entry-point');
+                      }
+                    },
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    color: const Color(0xFF6B7280),
+                    tooltip: 'Back',
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Manage customer support conversations',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Support Center',
+                      style: TextStyle(
+                        fontSize: isCompact ? 20 : 28,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF1F2937),
+                      ),
+                    ),
+                    if (!isCompact) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Manage customer support conversations',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ),
-            ],
-          ),
-        ),
-        _buildStatBadge('Open', openCount, const Color(0xFF10B981)),
-        const SizedBox(width: 12),
-        _buildStatBadge('Pending', pendingCount, const Color(0xFFF59E0B)),
-        const SizedBox(width: 16),
-        ElevatedButton.icon(
-          onPressed: () {
-            // إعادة تحميل البيانات
-            context.read<ChatCubit>().loadChatRooms();
-          },
-          icon: const Icon(Icons.refresh, size: 20),
-          label: const Text('Refresh'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF5542F6),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+              ],
             ),
-          ),
-        ),
-      ],
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildStatBadge('Open', openCount, const Color(0xFF10B981)),
+                const SizedBox(width: 12),
+                _buildStatBadge('Pending', pendingCount, const Color(0xFFF59E0B)),
+                const SizedBox(width: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    context.read<ChatCubit>().loadChatRooms();
+                  },
+                  icon: const Icon(Icons.refresh, size: 20),
+                  label: isCompact ? const SizedBox.shrink() : const Text('Refresh'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF5542F6),
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isCompact ? 12 : 20,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -216,6 +238,8 @@ class _SupportChatViewState extends State<_SupportChatView> {
     List<dynamic> messages = [];
     String currentFilter = 'All';
     bool isSending = false;
+    bool isSelectionMode = false;
+    Set<String> selectedMessageIds = {};
 
     if (state is ChatRoomsLoaded) {
       chatRooms = state.chatRooms;
@@ -226,6 +250,8 @@ class _SupportChatViewState extends State<_SupportChatView> {
       messages = state.messages;
       currentFilter = _capitalizeFirst(state.currentFilter);
       isSending = state.isSendingMessage;
+      isSelectionMode = state.isSelectionMode;
+      selectedMessageIds = state.selectedMessageIds;
     }
 
     final filteredConversations = chatRooms.where((conv) {
@@ -238,69 +264,188 @@ class _SupportChatViewState extends State<_SupportChatView> {
       return matchesSearch;
     }).toList();
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // قائمة المحادثات
-        SizedBox(
-          width: 360,
-          child: ChatRoomList(
-            conversations: filteredConversations,
-            selectedConversationId: selectedRoom?.id,
-            onConversationSelected: (conversation) {
-              context.read<ChatCubit>().selectChatRoom(conversation);
-            },
-            searchQuery: _searchQuery,
-            onSearchChanged: (query) {
-              setState(() {
-                _searchQuery = query;
-              });
-              if (query.isNotEmpty) {
-                context.read<ChatCubit>().searchChatRooms(query);
-              } else {
-                context.read<ChatCubit>().loadChatRooms();
-              }
-            },
-            selectedFilter: currentFilter,
-            onFilterChanged: (filter) {
-              context.read<ChatCubit>().filterByStatus(filter.toLowerCase());
-            },
-          ),
-        ),
-        const SizedBox(width: 24),
-        Expanded(
-          child: ChatArea(
-            selectedConversation: selectedRoom,
-            messages: messages.cast(),
-            messageController: _messageController,
-            isSending: isSending,
-            onSendMessage: (content) {
-              if (content.trim().isEmpty) return;
-              context.read<ChatCubit>().sendMessage(
-                    message: content,
-                    adminId: '1055fd29-cae5-4871-8209-ae6dad91bbaf',
-                  );
-              _messageController.clear();
-            },
-            onAttachFile: () {
-              // TODO: تنفيذ رفع الملفات
-            },
-            onStatusChange: (status) {
-              if (selectedRoom != null) {
-                context
-                    .read<ChatCubit>()
-                    .updateRoomStatus(selectedRoom.id!, status);
-              }
-            },
-          ),
-        ),
-        const SizedBox(width: 24),
-        // لوحة معلومات المستخدم
-        SizedBox(
-          width: 300,
-          child: UserInfoPanel(conversation: selectedRoom),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        final showUserPanel = screenWidth > 1200;
+        final showChatList = screenWidth > 800;
+        final chatListWidth = screenWidth > 1400 ? 360.0 : 300.0;
+        final userPanelWidth = screenWidth > 1400 ? 300.0 : 260.0;
+
+        // Mobile view - only show chat list or chat area
+        if (!showChatList) {
+          if (selectedRoom == null) {
+            return ChatRoomList(
+              conversations: filteredConversations,
+              selectedConversationId: selectedRoom?.id,
+              onConversationSelected: (conversation) {
+                context.read<ChatCubit>().selectChatRoom(conversation);
+              },
+              searchQuery: _searchQuery,
+              onSearchChanged: (query) {
+                setState(() {
+                  _searchQuery = query;
+                });
+                if (query.isNotEmpty) {
+                  context.read<ChatCubit>().searchChatRooms(query);
+                } else {
+                  context.read<ChatCubit>().loadChatRooms();
+                }
+              },
+              selectedFilter: currentFilter,
+              onFilterChanged: (filter) {
+                context.read<ChatCubit>().filterByStatus(filter.toLowerCase());
+              },
+            );
+          } else {
+            return _buildChatArea(
+              context,
+              selectedRoom,
+              messages,
+              isSending,
+              isSelectionMode,
+              selectedMessageIds,
+            );
+          }
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // قائمة المحادثات
+            SizedBox(
+              width: chatListWidth,
+              child: ChatRoomList(
+                conversations: filteredConversations,
+                selectedConversationId: selectedRoom?.id,
+                onConversationSelected: (conversation) {
+                  context.read<ChatCubit>().selectChatRoom(conversation);
+                },
+                searchQuery: _searchQuery,
+                onSearchChanged: (query) {
+                  setState(() {
+                    _searchQuery = query;
+                  });
+                  if (query.isNotEmpty) {
+                    context.read<ChatCubit>().searchChatRooms(query);
+                  } else {
+                    context.read<ChatCubit>().loadChatRooms();
+                  }
+                },
+                selectedFilter: currentFilter,
+                onFilterChanged: (filter) {
+                  context.read<ChatCubit>().filterByStatus(filter.toLowerCase());
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildChatArea(
+                context,
+                selectedRoom,
+                messages,
+                isSending,
+                isSelectionMode,
+                selectedMessageIds,
+              ),
+            ),
+            if (showUserPanel) ...[
+              const SizedBox(width: 16),
+              // لوحة معلومات المستخدم
+              SizedBox(
+                width: userPanelWidth,
+                child: UserInfoPanel(conversation: selectedRoom),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildChatArea(
+    BuildContext context,
+    ChatRoomModel? selectedRoom,
+    List<dynamic> messages,
+    bool isSending,
+    bool isSelectionMode,
+    Set<String> selectedMessageIds,
+  ) {
+    return ChatArea(
+      selectedConversation: selectedRoom,
+      messages: messages.cast(),
+      messageController: _messageController,
+      isSending: isSending,
+      onSendMessage: (content) {
+        if (content.trim().isEmpty) return;
+        context.read<ChatCubit>().sendMessage(
+              message: content,
+              adminId: '1055fd29-cae5-4871-8209-ae6dad91bbaf',
+            );
+        _messageController.clear();
+      },
+      onAttachFile: () {},
+      onStatusChange: (status) {
+        if (selectedRoom != null) {
+          context
+              .read<ChatCubit>()
+              .updateRoomStatus(selectedRoom.id!, status);
+        }
+      },
+      onSendImage: (fileName, bytes, size) {
+        context.read<ChatCubit>().sendImage(
+              adminId: '1055fd29-cae5-4871-8209-ae6dad91bbaf',
+              fileName: fileName,
+              imageBytes: bytes,
+              fileSize: size,
+            );
+      },
+      onSendVoice: (bytes, duration) {
+        context.read<ChatCubit>().sendVoice(
+              adminId: '1055fd29-cae5-4871-8209-ae6dad91bbaf',
+              fileName: 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
+              audioBytes: bytes,
+              duration: duration,
+              fileSize: bytes.length,
+            );
+      },
+      onSendFile: (fileName, bytes, size) {
+        context.read<ChatCubit>().sendFile(
+              adminId: '1055fd29-cae5-4871-8209-ae6dad91bbaf',
+              fileName: fileName,
+              fileBytes: bytes,
+              fileSize: size,
+            );
+      },
+      // Selection mode callbacks
+      isSelectionMode: isSelectionMode,
+      selectedMessageIds: selectedMessageIds,
+      onEnableSelectionMode: (messageId) {
+        context.read<ChatCubit>().enableSelectionMode(messageId);
+      },
+      onCancelSelectionMode: () {
+        context.read<ChatCubit>().cancelSelectionMode();
+      },
+      onToggleMessageSelection: (messageId) {
+        context.read<ChatCubit>().toggleMessageSelection(messageId);
+      },
+      onSelectAll: () {
+        final cubit = context.read<ChatCubit>();
+        final currentState = cubit.state;
+        if (currentState is ChatConversationLoaded) {
+          if (currentState.isAllSelected) {
+            cubit.deselectAllMessages();
+          } else {
+            cubit.selectAllMessages();
+          }
+        }
+      },
+      onDeleteSelected: () {
+        context.read<ChatCubit>().deleteSelectedMessages();
+      },
+      onDeleteMessage: (messageId) {
+        context.read<ChatCubit>().deleteMessage(messageId);
+      },
     );
   }
 

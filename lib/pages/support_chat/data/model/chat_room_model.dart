@@ -40,7 +40,6 @@ class ChatRoomModel {
   });
 
   factory ChatRoomModel.fromJson(Map<String, dynamic> json) {
-    // استخراج بيانات المستخدم إذا كانت موجودة (من JOIN)
     final userData = json['users'] as Map<String, dynamic>?;
 
     return ChatRoomModel(

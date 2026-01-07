@@ -1,5 +1,22 @@
 import 'dart:collection';
 
+enum MessageType {
+  text('text'),
+  image('image'),
+  voice('voice'),
+  file('file');
+
+  final String value;
+  const MessageType(this.value);
+
+  static MessageType fromString(String? value) {
+    return MessageType.values.firstWhere(
+      (e) => e.value == value,
+      orElse: () => MessageType.text,
+    );
+  }
+}
+
 class ChatMessageModel {
   final String? id;
 
@@ -15,6 +32,18 @@ class ChatMessageModel {
 
   final DateTime? createdAt;
 
+  final MessageType messageType;
+
+  final String? mediaUrl;
+
+  final String? fileName;
+
+  final int? fileSize;
+
+  final int? audioDuration;
+
+  final bool isDeleted;
+
   ChatMessageModel({
     this.id,
     required this.chatRoomId,
@@ -23,6 +52,12 @@ class ChatMessageModel {
     this.isAdmin = false,
     this.isRead = false,
     this.createdAt,
+    this.messageType = MessageType.text,
+    this.mediaUrl,
+    this.fileName,
+    this.fileSize,
+    this.audioDuration,
+    this.isDeleted = false,
   });
 
   factory ChatMessageModel.fromJson(Map<String, dynamic> json) {
@@ -36,6 +71,12 @@ class ChatMessageModel {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : null,
+      messageType: MessageType.fromString(json['message_type']),
+      mediaUrl: json['media_url'],
+      fileName: json['file_name'],
+      fileSize: json['file_size'],
+      audioDuration: json['audio_duration'],
+      isDeleted: json['is_deleted'] ?? false,
     );
   }
 
@@ -47,6 +88,12 @@ class ChatMessageModel {
       'message': message,
       'is_admin': isAdmin,
       'is_read': isRead,
+      'message_type': messageType.value,
+      if (mediaUrl != null) 'media_url': mediaUrl,
+      if (fileName != null) 'file_name': fileName,
+      if (fileSize != null) 'file_size': fileSize,
+      if (audioDuration != null) 'audio_duration': audioDuration,
+      'is_deleted': isDeleted,
     };
   }
 
@@ -56,6 +103,11 @@ class ChatMessageModel {
       'sender_id': senderId,
       'message': message,
       'is_admin': isAdmin,
+      'message_type': messageType.value,
+      if (mediaUrl != null) 'media_url': mediaUrl,
+      if (fileName != null) 'file_name': fileName,
+      if (fileSize != null) 'file_size': fileSize,
+      if (audioDuration != null) 'audio_duration': audioDuration,
     };
   }
 
@@ -67,6 +119,12 @@ class ChatMessageModel {
     bool? isAdmin,
     bool? isRead,
     DateTime? createdAt,
+    MessageType? messageType,
+    String? mediaUrl,
+    String? fileName,
+    int? fileSize,
+    int? audioDuration,
+    bool? isDeleted,
   }) {
     return ChatMessageModel(
       id: id ?? this.id,
@@ -76,7 +134,32 @@ class ChatMessageModel {
       isAdmin: isAdmin ?? this.isAdmin,
       isRead: isRead ?? this.isRead,
       createdAt: createdAt ?? this.createdAt,
+      messageType: messageType ?? this.messageType,
+      mediaUrl: mediaUrl ?? this.mediaUrl,
+      fileName: fileName ?? this.fileName,
+      fileSize: fileSize ?? this.fileSize,
+      audioDuration: audioDuration ?? this.audioDuration,
+      isDeleted: isDeleted ?? this.isDeleted,
     );
+  }
+
+  bool get isText => messageType == MessageType.text;
+  bool get isImage => messageType == MessageType.image;
+  bool get isVoice => messageType == MessageType.voice;
+  bool get isFile => messageType == MessageType.file;
+
+  String get formattedFileSize {
+    if (fileSize == null) return '';
+    if (fileSize! < 1024) return '$fileSize B';
+    if (fileSize! < 1024 * 1024) return '${(fileSize! / 1024).toStringAsFixed(1)} KB';
+    return '${(fileSize! / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  String get formattedAudioDuration {
+    if (audioDuration == null) return '0:00';
+    final minutes = audioDuration! ~/ 60;
+    final seconds = audioDuration! % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
   String get formattedTime {
@@ -138,7 +221,6 @@ extension ChatMessageListExtension on List<ChatMessageModel> {
       grouped[dateKey]!.add(message);
     }
 
-    // إرجاع Map مرتب حسب ترتيب الإضافة
     final LinkedHashMap<String, List<ChatMessageModel>> orderedMap =
         LinkedHashMap<String, List<ChatMessageModel>>();
     for (final key in orderedKeys) {

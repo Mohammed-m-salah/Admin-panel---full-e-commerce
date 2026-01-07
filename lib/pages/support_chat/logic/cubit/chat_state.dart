@@ -42,12 +42,20 @@ class ChatConversationLoaded extends ChatState {
   final bool isSendingMessage;
   final String currentFilter;
 
+  /// وضع التحديد
+  final bool isSelectionMode;
+
+  /// قائمة الرسائل المحددة
+  final Set<String> selectedMessageIds;
+
   ChatConversationLoaded({
     required this.chatRooms,
     required this.selectedRoom,
     required this.messages,
     this.isSendingMessage = false,
     this.currentFilter = 'all',
+    this.isSelectionMode = false,
+    this.selectedMessageIds = const {},
   });
 
   ChatConversationLoaded copyWith({
@@ -56,6 +64,8 @@ class ChatConversationLoaded extends ChatState {
     List<ChatMessageModel>? messages,
     bool? isSendingMessage,
     String? currentFilter,
+    bool? isSelectionMode,
+    Set<String>? selectedMessageIds,
   }) {
     return ChatConversationLoaded(
       chatRooms: chatRooms ?? this.chatRooms,
@@ -63,6 +73,8 @@ class ChatConversationLoaded extends ChatState {
       messages: messages ?? this.messages,
       isSendingMessage: isSendingMessage ?? this.isSendingMessage,
       currentFilter: currentFilter ?? this.currentFilter,
+      isSelectionMode: isSelectionMode ?? this.isSelectionMode,
+      selectedMessageIds: selectedMessageIds ?? this.selectedMessageIds,
     );
   }
 
@@ -70,6 +82,13 @@ class ChatConversationLoaded extends ChatState {
       messages.groupByDate();
 
   int get unreadCount => messages.where((m) => !m.isRead && !m.isAdmin).length;
+
+  /// عدد الرسائل المحددة
+  int get selectedCount => selectedMessageIds.length;
+
+  /// هل كل الرسائل محددة؟
+  bool get isAllSelected =>
+      selectedMessageIds.length == messages.where((m) => !m.isDeleted).length;
 }
 
 class ChatError extends ChatState {

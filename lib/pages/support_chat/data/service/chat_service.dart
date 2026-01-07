@@ -30,22 +30,18 @@ class ChatService {
     return _repository.getChatRoomsByStatus(status.value);
   }
 
-  /// جلب غرفة محادثة بالـ ID
   Future<ChatRoomModel?> getChatRoomById(String roomId) {
     return _repository.getChatRoomById(roomId);
   }
 
-  /// إنشاء غرفة محادثة جديدة
   Future<ChatRoomModel> createChatRoom(String userId) {
     return _repository.createChatRoom(userId);
   }
 
-  /// تحديث حالة الغرفة
   Future<void> updateRoomStatus(String roomId, ChatRoomStatus status) {
     return _repository.updateChatRoomStatus(roomId, status.value);
   }
 
-  /// تعيين أدمن للمحادثة
   Future<void> assignAdmin(String roomId, String adminId) {
     return _repository.assignAdminToChatRoom(roomId, adminId);
   }
@@ -70,7 +66,6 @@ class ChatService {
     );
   }
 
-  /// إرسال رسالة من الأدمن
   Future<ChatMessageModel> sendAdminMessage({
     required String chatRoomId,
     required String adminId,
@@ -84,7 +79,6 @@ class ChatService {
     );
   }
 
-  /// إرسال رسالة من المستخدم
   Future<ChatMessageModel> sendUserMessage({
     required String chatRoomId,
     required String userId,
@@ -98,7 +92,6 @@ class ChatService {
     );
   }
 
-  /// تحديث حالة القراءة
   Future<void> markAsRead({
     required String chatRoomId,
     required bool isAdmin,
@@ -126,7 +119,6 @@ class ChatService {
     return _repository.watchMessages(chatRoomId);
   }
 
-  /// Stream للرسائل مجمعة حسب التاريخ
   Stream<Map<String, List<ChatMessageModel>>> groupedMessagesStream(
       String chatRoomId) {
     return messagesStream(chatRoomId).map((messages) => messages.groupByDate());

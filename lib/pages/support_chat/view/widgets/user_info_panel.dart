@@ -124,6 +124,9 @@ class UserInfoPanel extends StatelessWidget {
               fontWeight: FontWeight.bold,
               color: Color(0xFF1F2937),
             ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 4),
           Container(
@@ -252,7 +255,10 @@ class UserInfoPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        _buildTicketRow('Ticket ID', '#${conversation!.id}'),
+        _buildTicketRow(
+          'Ticket ID',
+          '#${conversation!.id != null && conversation!.id!.length > 8 ? conversation!.id!.substring(0, 8) : conversation!.id ?? "N/A"}',
+        ),
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -310,12 +316,17 @@ class UserInfoPanel extends StatelessWidget {
           label,
           style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
         ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF1F2937),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF1F2937),
+            ),
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
           ),
         ),
       ],

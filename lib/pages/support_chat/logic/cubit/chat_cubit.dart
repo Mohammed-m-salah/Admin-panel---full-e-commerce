@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -6,36 +7,18 @@ import '../../data/model/chat_room_model.dart';
 import '../../data/repository/chat_repository.dart';
 import 'chat_state.dart';
 
-/// ═══════════════════════════════════════════════════════════════════════════
-/// Chat Cubit - إدارة حالة الدردشة
-/// ═══════════════════════════════════════════════════════════════════════════
-/// يدير:
-/// - قائمة غرف المحادثات
-/// - المحادثة المفتوحة حاليًا
-/// - الرسائل
-/// - Real-time subscriptions
-/// ═══════════════════════════════════════════════════════════════════════════
-
 class ChatCubit extends Cubit<ChatState> {
   final ChatRepository _repository;
 
-  // Subscriptions للـ Real-time
   StreamSubscription? _chatRoomsSubscription;
   StreamSubscription? _messagesSubscription;
 
-  // الغرفة المحددة حاليًا
   String? _selectedRoomId;
 
-  // الفلتر الحالي
   String _currentFilter = 'all';
 
   ChatCubit(this._repository) : super(ChatInitial());
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // تحميل غرف المحادثات
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// تحميل جميع غرف المحادثات
   Future<void> loadChatRooms() async {
     emit(ChatLoading());
     try {
@@ -49,19 +32,16 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  /// الاستماع لغرف المحادثات (Real-time)
   void subscribeToChatRooms() {
     emit(ChatLoading());
 
     _chatRoomsSubscription?.cancel();
     _chatRoomsSubscription = _repository.watchChatRooms().listen(
       (chatRooms) async {
-        // إضافة تفاصيل آخر رسالة وعدد غير المقروء
         final detailedRooms = await _addDetailsToRooms(chatRooms);
 
         final currentState = state;
         if (currentState is ChatConversationLoaded) {
-          // إذا كانت محادثة مفتوحة، نحافظ عليها
           emit(currentState.copyWith(
             chatRooms: detailedRooms,
             currentFilter: _currentFilter,
@@ -77,7 +57,7 @@ class ChatCubit extends Cubit<ChatState> {
     );
   }
 
-  /// إضافة تفاصيل (آخر رسالة + غير مقروء) للغرف
+  /// إضافة تفاصيل (آخر رسالة + غير مقروء + بيانات المستخدم) للغرف
   Future<List<ChatRoomModel>> _addDetailsToRooms(
       List<ChatRoomModel> rooms) async {
     final List<ChatRoomModel> result = [];
@@ -89,7 +69,16 @@ class ChatCubit extends Cubit<ChatState> {
         isAdmin: true,
       );
 
-      result.add(room.copyWith(
+      // إذا لم تكن بيانات المستخدم موجودة، نجلبها من قاعدة البيانات
+      ChatRoomModel updatedRoom = room;
+      if (room.userName == null || room.userName!.isEmpty) {
+        final fullRoom = await _repository.getChatRoomById(room.id!);
+        if (fullRoom != null) {
+          updatedRoom = fullRoom;
+        }
+      }
+
+      result.add(updatedRoom.copyWith(
         lastMessage: lastMessage?.message,
         lastMessageTime: lastMessage?.createdAt,
         unreadCount: unreadCount,
@@ -106,11 +95,6 @@ class ChatCubit extends Cubit<ChatState> {
     return result;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // فلترة غرف المحادثات
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// فلترة حسب الحالة
   Future<void> filterByStatus(String status) async {
     _currentFilter = status;
 
@@ -141,25 +125,17 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // اختيار محادثة
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// فتح محادثة وتحميل رسائلها
   Future<void> selectChatRoom(ChatRoomModel room) async {
     _selectedRoomId = room.id;
 
     try {
-      // جلب الرسائل
       final messages = await _repository.getMessages(room.id!);
 
-      // تحديث حالة القراءة
       await _repository.markAllMessagesAsRead(
         chatRoomId: room.id!,
         isAdmin: true,
       );
 
-      // الحصول على قائمة الغرف الحالية
       List<ChatRoomModel> currentRooms = [];
       final currentState = state;
       if (currentState is ChatRoomsLoaded) {
@@ -175,14 +151,12 @@ class ChatCubit extends Cubit<ChatState> {
         currentFilter: _currentFilter,
       ));
 
-      // الاستماع للرسائل الجديدة
       _subscribeToMessages(room.id!);
     } catch (e) {
       emit(ChatError(e.toString()));
     }
   }
 
-  /// الاستماع لرسائل غرفة معينة (Real-time)
   void _subscribeToMessages(String chatRoomId) {
     _messagesSubscription?.cancel();
     _messagesSubscription = _repository.watchMessages(chatRoomId).listen(
@@ -191,7 +165,6 @@ class ChatCubit extends Cubit<ChatState> {
         if (currentState is ChatConversationLoaded) {
           emit(currentState.copyWith(messages: messages));
 
-          // تحديث حالة القراءة للرسائل الجديدة
           _repository.markAllMessagesAsRead(
             chatRoomId: chatRoomId,
             isAdmin: true,
@@ -202,7 +175,6 @@ class ChatCubit extends Cubit<ChatState> {
     );
   }
 
-  /// إغلاق المحادثة والعودة للقائمة
   void closeChatRoom() {
     _selectedRoomId = null;
     _messagesSubscription?.cancel();
@@ -216,11 +188,6 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // إرسال الرسائل
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// إرسال رسالة جديدة
   Future<void> sendMessage({
     required String message,
     required String adminId,
@@ -230,11 +197,9 @@ class ChatCubit extends Cubit<ChatState> {
     final currentState = state;
     if (currentState is! ChatConversationLoaded) return;
 
-    // تحديث الحالة لإظهار جاري الإرسال
     emit(currentState.copyWith(isSendingMessage: true));
 
     try {
-      // إرسال الرسالة إلى قاعدة البيانات
       final newMessage = await _repository.sendMessage(
         chatRoomId: _selectedRoomId!,
         senderId: adminId,
@@ -242,11 +207,10 @@ class ChatCubit extends Cubit<ChatState> {
         isAdmin: true,
       );
 
-      // الحصول على الحالة الحالية (قد تكون تغيرت بسبب الـ Stream)
       final updatedState = state;
       if (updatedState is ChatConversationLoaded) {
-        // إضافة الرسالة الجديدة إذا لم تكن موجودة بالفعل (من الـ Stream)
-        final messageExists = updatedState.messages.any((m) => m.id == newMessage.id);
+        final messageExists =
+            updatedState.messages.any((m) => m.id == newMessage.id);
         if (!messageExists) {
           final updatedMessages = [...updatedState.messages, newMessage];
           emit(updatedState.copyWith(
@@ -258,7 +222,6 @@ class ChatCubit extends Cubit<ChatState> {
         }
       }
     } catch (e) {
-      // في حالة الخطأ، نحصل على الحالة الحالية
       final errorState = state;
       if (errorState is ChatConversationLoaded) {
         emit(errorState.copyWith(isSendingMessage: false));
@@ -267,24 +230,175 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // تحديث حالة الغرفة
-  // ═══════════════════════════════════════════════════════════════════════════
+  /// إرسال صورة
+  Future<void> sendImage({
+    required String adminId,
+    required String fileName,
+    required Uint8List imageBytes,
+    required int fileSize,
+  }) async {
+    if (_selectedRoomId == null) return;
 
-  /// تحديث حالة المحادثة
+    final currentState = state;
+    if (currentState is! ChatConversationLoaded) return;
+
+    emit(currentState.copyWith(isSendingMessage: true));
+
+    try {
+      final imageUrl = await _repository.uploadImage(
+        chatRoomId: _selectedRoomId!,
+        fileName: fileName,
+        imageBytes: imageBytes,
+      );
+
+      final newMessage = await _repository.sendImageMessage(
+        chatRoomId: _selectedRoomId!,
+        senderId: adminId,
+        isAdmin: true,
+        imageUrl: imageUrl,
+        fileName: fileName,
+        fileSize: fileSize,
+      );
+
+      final updatedState = state;
+      if (updatedState is ChatConversationLoaded) {
+        final messageExists =
+            updatedState.messages.any((m) => m.id == newMessage.id);
+        if (!messageExists) {
+          final updatedMessages = [...updatedState.messages, newMessage];
+          emit(updatedState.copyWith(
+            messages: updatedMessages,
+            isSendingMessage: false,
+          ));
+        } else {
+          emit(updatedState.copyWith(isSendingMessage: false));
+        }
+      }
+    } catch (e) {
+      final errorState = state;
+      if (errorState is ChatConversationLoaded) {
+        emit(errorState.copyWith(isSendingMessage: false));
+      }
+      emit(ChatError('فشل إرسال الصورة: ${e.toString()}'));
+    }
+  }
+
+  Future<void> sendVoice({
+    required String adminId,
+    required String fileName,
+    required Uint8List audioBytes,
+    required int duration,
+    required int fileSize,
+  }) async {
+    if (_selectedRoomId == null) return;
+
+    final currentState = state;
+    if (currentState is! ChatConversationLoaded) return;
+
+    emit(currentState.copyWith(isSendingMessage: true));
+
+    try {
+      final voiceUrl = await _repository.uploadVoice(
+        chatRoomId: _selectedRoomId!,
+        fileName: fileName,
+        audioBytes: audioBytes,
+      );
+
+      final newMessage = await _repository.sendVoiceMessage(
+        chatRoomId: _selectedRoomId!,
+        senderId: adminId,
+        isAdmin: true,
+        voiceUrl: voiceUrl,
+        duration: duration,
+        fileSize: fileSize,
+      );
+
+      final updatedState = state;
+      if (updatedState is ChatConversationLoaded) {
+        final messageExists =
+            updatedState.messages.any((m) => m.id == newMessage.id);
+        if (!messageExists) {
+          final updatedMessages = [...updatedState.messages, newMessage];
+          emit(updatedState.copyWith(
+            messages: updatedMessages,
+            isSendingMessage: false,
+          ));
+        } else {
+          emit(updatedState.copyWith(isSendingMessage: false));
+        }
+      }
+    } catch (e) {
+      final errorState = state;
+      if (errorState is ChatConversationLoaded) {
+        emit(errorState.copyWith(isSendingMessage: false));
+      }
+      emit(ChatError('فشل إرسال الرسالة الصوتية: ${e.toString()}'));
+    }
+  }
+
+  Future<void> sendFile({
+    required String adminId,
+    required String fileName,
+    required Uint8List fileBytes,
+    required int fileSize,
+  }) async {
+    if (_selectedRoomId == null) return;
+
+    final currentState = state;
+    if (currentState is! ChatConversationLoaded) return;
+
+    emit(currentState.copyWith(isSendingMessage: true));
+
+    try {
+      final fileUrl = await _repository.uploadAttachment(
+        chatRoomId: _selectedRoomId!,
+        fileName: fileName,
+        fileBytes: fileBytes,
+      );
+
+      final newMessage = await _repository.sendFileMessage(
+        chatRoomId: _selectedRoomId!,
+        senderId: adminId,
+        isAdmin: true,
+        fileUrl: fileUrl,
+        fileName: fileName,
+        fileSize: fileSize,
+      );
+
+      final updatedState = state;
+      if (updatedState is ChatConversationLoaded) {
+        final messageExists =
+            updatedState.messages.any((m) => m.id == newMessage.id);
+        if (!messageExists) {
+          final updatedMessages = [...updatedState.messages, newMessage];
+          emit(updatedState.copyWith(
+            messages: updatedMessages,
+            isSendingMessage: false,
+          ));
+        } else {
+          emit(updatedState.copyWith(isSendingMessage: false));
+        }
+      }
+    } catch (e) {
+      final errorState = state;
+      if (errorState is ChatConversationLoaded) {
+        emit(errorState.copyWith(isSendingMessage: false));
+      }
+      emit(ChatError('فشل إرسال الملف: ${e.toString()}'));
+    }
+  }
+
   Future<void> updateRoomStatus(String roomId, String status) async {
     try {
       await _repository.updateChatRoomStatus(roomId, status);
       emit(ChatOperationSuccess('تم تحديث حالة المحادثة'));
 
-      // إعادة تحميل الغرف
       await loadChatRooms();
     } catch (e) {
       emit(ChatError(e.toString()));
     }
   }
 
-  /// تعيين أدمن للمحادثة
   Future<void> assignAdmin(String roomId, String adminId) async {
     try {
       await _repository.assignAdminToChatRoom(roomId, adminId);
@@ -294,11 +408,6 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // البحث
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// البحث في المحادثات
   Future<void> searchChatRooms(String query) async {
     if (query.isEmpty) {
       await loadChatRooms();
@@ -329,27 +438,149 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // حذف
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// حذف رسالة
   Future<void> deleteMessage(String messageId) async {
     try {
       await _repository.deleteMessage(messageId);
-      emit(ChatOperationSuccess('تم حذف الرسالة'));
+
+      // تحديث الرسائل محلياً
+      final currentState = state;
+      if (currentState is ChatConversationLoaded) {
+        final updatedMessages = currentState.messages.map((m) {
+          if (m.id == messageId) {
+            return m.copyWith(isDeleted: true);
+          }
+          return m;
+        }).toList();
+
+        emit(currentState.copyWith(
+          messages: updatedMessages,
+          isSelectionMode: false,
+          selectedMessageIds: {},
+        ));
+      }
     } catch (e) {
       emit(ChatError(e.toString()));
     }
   }
 
-  /// حذف محادثة
+  void enableSelectionMode(String? initialMessageId) {
+    final currentState = state;
+    if (currentState is ChatConversationLoaded) {
+      emit(currentState.copyWith(
+        isSelectionMode: true,
+        selectedMessageIds: initialMessageId != null ? {initialMessageId} : {},
+      ));
+    }
+  }
+
+  /// إلغاء وضع التحديد
+  void cancelSelectionMode() {
+    final currentState = state;
+    if (currentState is ChatConversationLoaded) {
+      emit(currentState.copyWith(
+        isSelectionMode: false,
+        selectedMessageIds: {},
+      ));
+    }
+  }
+
+  /// تحديد/إلغاء تحديد رسالة
+  void toggleMessageSelection(String messageId) {
+    final currentState = state;
+    if (currentState is ChatConversationLoaded) {
+      final newSelection = Set<String>.from(currentState.selectedMessageIds);
+
+      if (newSelection.contains(messageId)) {
+        newSelection.remove(messageId);
+      } else {
+        newSelection.add(messageId);
+      }
+
+      if (newSelection.isEmpty) {
+        emit(currentState.copyWith(
+          isSelectionMode: false,
+          selectedMessageIds: {},
+        ));
+      } else {
+        emit(currentState.copyWith(selectedMessageIds: newSelection));
+      }
+    }
+  }
+
+  void selectAllMessages() {
+    final currentState = state;
+    if (currentState is ChatConversationLoaded) {
+      final allIds = currentState.messages
+          .where((m) => !m.isDeleted)
+          .map((m) => m.id!)
+          .toSet();
+
+      emit(currentState.copyWith(selectedMessageIds: allIds));
+    }
+  }
+
+  void deselectAllMessages() {
+    final currentState = state;
+    if (currentState is ChatConversationLoaded) {
+      emit(currentState.copyWith(selectedMessageIds: {}));
+    }
+  }
+
+  Future<void> deleteSelectedMessages() async {
+    final currentState = state;
+    if (currentState is! ChatConversationLoaded) return;
+
+    if (currentState.selectedMessageIds.isEmpty) return;
+
+    try {
+      await _repository
+          .deleteMultipleMessages(currentState.selectedMessageIds.toList());
+
+      final updatedMessages = currentState.messages.map((m) {
+        if (currentState.selectedMessageIds.contains(m.id)) {
+          return m.copyWith(isDeleted: true);
+        }
+        return m;
+      }).toList();
+
+      emit(currentState.copyWith(
+        messages: updatedMessages,
+        isSelectionMode: false,
+        selectedMessageIds: {},
+      ));
+    } catch (e) {
+      emit(ChatError('فشل حذف الرسائل: ${e.toString()}'));
+    }
+  }
+
+  Future<void> deleteAllMessagesInCurrentRoom() async {
+    if (_selectedRoomId == null) return;
+
+    final currentState = state;
+    if (currentState is! ChatConversationLoaded) return;
+
+    try {
+      await _repository.deleteAllMessagesInRoom(_selectedRoomId!);
+
+      final updatedMessages = currentState.messages.map((m) {
+        return m.copyWith(isDeleted: true);
+      }).toList();
+
+      emit(currentState.copyWith(
+        messages: updatedMessages,
+        isSelectionMode: false,
+        selectedMessageIds: {},
+      ));
+    } catch (e) {
+      emit(ChatError('فشل حذف جميع الرسائل: ${e.toString()}'));
+    }
+  }
+
   Future<void> deleteChatRoom(String roomId) async {
     try {
       await _repository.deleteChatRoom(roomId);
       emit(ChatOperationSuccess('تم حذف المحادثة'));
 
-      // إغلاق المحادثة إذا كانت مفتوحة
       if (_selectedRoomId == roomId) {
         closeChatRoom();
       }
@@ -360,19 +591,9 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Getters
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// الغرفة المحددة حاليًا
   String? get selectedRoomId => _selectedRoomId;
 
-  /// الفلتر الحالي
   String get currentFilter => _currentFilter;
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Cleanup
-  // ═══════════════════════════════════════════════════════════════════════════
 
   @override
   Future<void> close() {
