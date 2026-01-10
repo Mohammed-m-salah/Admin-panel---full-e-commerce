@@ -207,6 +207,15 @@ class ChatCubit extends Cubit<ChatState> {
         isAdmin: true,
       );
 
+      // إرسال إشعار للمستخدم
+      if (currentState.selectedRoom?.userId != null) {
+        await _repository.sendPushNotification(
+          userId: currentState.selectedRoom!.userId!,
+          title: 'رسالة جديدة من الدعم',
+          body: message,
+        );
+      }
+
       final updatedState = state;
       if (updatedState is ChatConversationLoaded) {
         final messageExists =
@@ -259,6 +268,15 @@ class ChatCubit extends Cubit<ChatState> {
         fileName: fileName,
         fileSize: fileSize,
       );
+
+      // إرسال إشعار للمستخدم
+      if (currentState.selectedRoom?.userId != null) {
+        await _repository.sendPushNotification(
+          userId: currentState.selectedRoom!.userId!,
+          title: 'رسالة جديدة من الدعم',
+          body: '📷 صورة',
+        );
+      }
 
       final updatedState = state;
       if (updatedState is ChatConversationLoaded) {
@@ -313,6 +331,15 @@ class ChatCubit extends Cubit<ChatState> {
         fileSize: fileSize,
       );
 
+      // إرسال إشعار للمستخدم
+      if (currentState.selectedRoom?.userId != null) {
+        await _repository.sendPushNotification(
+          userId: currentState.selectedRoom!.userId!,
+          title: 'رسالة جديدة من الدعم',
+          body: '🎤 رسالة صوتية',
+        );
+      }
+
       final updatedState = state;
       if (updatedState is ChatConversationLoaded) {
         final messageExists =
@@ -364,6 +391,15 @@ class ChatCubit extends Cubit<ChatState> {
         fileName: fileName,
         fileSize: fileSize,
       );
+
+      // إرسال إشعار للمستخدم
+      if (currentState.selectedRoom?.userId != null) {
+        await _repository.sendPushNotification(
+          userId: currentState.selectedRoom!.userId!,
+          title: 'رسالة جديدة من الدعم',
+          body: '📎 ملف: $fileName',
+        );
+      }
 
       final updatedState = state;
       if (updatedState is ChatConversationLoaded) {

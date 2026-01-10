@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/model/notification_model.dart';
+import '../data/repositories/notification_repository.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Notifications Management Page
@@ -16,69 +17,10 @@ class _NotificationsPageState extends State<NotificationsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
+  final NotificationRepository _notificationRepository = NotificationRepository();
   String _searchQuery = '';
   String _typeFilter = 'All';
-
-  // Sample notification data
-  final List<NotificationModel> _notifications = [
-    NotificationModel(
-      id: '1',
-      title: 'Special Offer - 50% Off',
-      body: 'Enjoy 50% off on all products for a limited time!',
-      type: NotificationType.newOffer,
-      target: NotificationTarget.allUsers,
-      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-      sentCount: 1520,
-      readCount: 890,
-    ),
-    NotificationModel(
-      id: '2',
-      title: 'Your Order is on the Way',
-      body: 'Your order #12345 has been shipped and will arrive in 2-3 days',
-      type: NotificationType.orderStatusChange,
-      target: NotificationTarget.specificUser,
-      userId: 'user123',
-      userName: 'John Smith',
-      createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-      sentCount: 1,
-      readCount: 1,
-    ),
-    NotificationModel(
-      id: '3',
-      title: 'Product Back in Stock',
-      body: 'iPhone 15 Pro is now available!',
-      type: NotificationType.productBackInStock,
-      target: NotificationTarget.allUsers,
-      createdAt: DateTime.now().subtract(const Duration(days: 1)),
-      sentCount: 2300,
-      readCount: 1200,
-      isAutomatic: true,
-    ),
-    NotificationModel(
-      id: '4',
-      title: 'New Order',
-      body: 'You have a new order #12346',
-      type: NotificationType.newOrder,
-      target: NotificationTarget.specificUser,
-      userId: 'admin',
-      userName: 'Admin',
-      createdAt: DateTime.now().subtract(const Duration(days: 2)),
-      sentCount: 1,
-      readCount: 1,
-      isAutomatic: true,
-    ),
-    NotificationModel(
-      id: '5',
-      title: 'New Banner!',
-      body: 'New banner added - Summer Sale',
-      type: NotificationType.newBanner,
-      target: NotificationTarget.allUsers,
-      createdAt: DateTime.now().subtract(const Duration(days: 3)),
-      sentCount: 1800,
-      readCount: 950,
-      isAutomatic: true,
-    ),
-  ];
+  List<NotificationModel> _notifications = [];
 
   // Auto notification settings
   final List<AutoNotificationSetting> _autoSettings = [
@@ -150,25 +92,34 @@ class _NotificationsPageState extends State<NotificationsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildStatCards(),
-                  const SizedBox(height: 24),
-                  _buildQuickActions(),
-                  const SizedBox(height: 24),
-                  _buildTabSection(),
-                ],
+      body: StreamBuilder<List<NotificationModel>>(
+        stream: _notificationRepository.getNotificationsStream(),
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            _notifications = snapshot.data!;
+          }
+
+          return Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildStatCards(),
+                      const SizedBox(height: 24),
+                      _buildQuickActions(),
+                      const SizedBox(height: 24),
+                      _buildTabSection(),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -1131,10 +1082,12 @@ class _SendNotificationDialogState extends State<_SendNotificationDialog> {
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
   final _userSearchController = TextEditingController();
+  final NotificationRepository _notificationRepository = NotificationRepository();
 
   late NotificationTarget _target;
   String? _selectedUserId;
   String? _selectedUserName;
+  bool _isSending = false;
 
   // Sample user data
   final List<Map<String, String>> _users = [
@@ -1156,6 +1109,63 @@ class _SendNotificationDialogState extends State<_SendNotificationDialog> {
     _bodyController.dispose();
     _userSearchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _sendNotification() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_target == NotificationTarget.specificUser && _selectedUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a user'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSending = true);
+
+    try {
+      if (_target == NotificationTarget.allUsers) {
+        await _notificationRepository.sendToAllUsers(
+          title: _titleController.text,
+          body: _bodyController.text,
+          type: NotificationType.custom,
+        );
+      } else {
+        await _notificationRepository.sendToUser(
+          userId: _selectedUserId!,
+          userName: _selectedUserName ?? 'User',
+          title: _titleController.text,
+          body: _bodyController.text,
+          type: NotificationType.custom,
+        );
+      }
+
+      if (mounted) {
+        Navigator.pop(context, true); // Return true to indicate success
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Notification sent successfully!'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error sending notification: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    }
   }
 
   @override
@@ -1643,30 +1653,18 @@ class _SendNotificationDialogState extends State<_SendNotificationDialog> {
           const SizedBox(width: 12),
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: () {
-                if (_formKey.currentState!.validate()) {
-                  if (_target == NotificationTarget.specificUser &&
-                      _selectedUserId == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please select a user'),
-                        backgroundColor: Colors.red,
+              onPressed: _isSending ? null : () => _sendNotification(),
+              icon: _isSending
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
                       ),
-                    );
-                    return;
-                  }
-                  // Send notification logic here
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Notification sent successfully!'),
-                      backgroundColor: Color(0xFF10B981),
-                    ),
-                  );
-                }
-              },
-              icon: const Icon(Icons.send_rounded, size: 18),
-              label: const Text('Send'),
+                    )
+                  : const Icon(Icons.send_rounded, size: 18),
+              label: Text(_isSending ? 'Sending...' : 'Send'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF6B6B),
                 foregroundColor: Colors.white,

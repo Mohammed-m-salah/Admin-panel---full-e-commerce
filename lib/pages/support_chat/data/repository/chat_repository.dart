@@ -417,6 +417,27 @@ class ChatRepository {
         .map((data) => data.map((e) => ChatMessageModel.fromJson(e)).toList());
   }
 
+  /// إرسال إشعار push للمستخدم عبر Edge Function
+  Future<void> sendPushNotification({
+    required String userId,
+    required String title,
+    required String body,
+  }) async {
+    try {
+      await _supabase.functions.invoke(
+        'dynamic-function',
+        body: {
+          'user_id': userId,
+          'title': title,
+          'body': body,
+        },
+      );
+    } catch (e) {
+      // لا نريد أن يفشل إرسال الرسالة إذا فشل الإشعار
+      print('Failed to send push notification: $e');
+    }
+  }
+
   Future<List<ChatRoomModel>> getChatRoomsWithDetails() async {
     final rooms = await getAllChatRooms();
     final List<ChatRoomModel> result = [];

@@ -16,8 +16,21 @@ import 'package:core_dashboard/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:core_dashboard/services/notification_service.dart';
+import 'firebase_options.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Initialize Notifications
+  await NotificationService.initialize();
+
   await Supabase.initialize(
     url: 'https://blpirgrhytbjmapmjfnq.supabase.co',
     anonKey:
