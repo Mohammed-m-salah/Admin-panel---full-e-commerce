@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import '../data/model/notification_model.dart';
 import '../data/repositories/notification_repository.dart';
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Notifications Management Page
-// ═══════════════════════════════════════════════════════════════════════════════
-
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
 
@@ -17,7 +13,8 @@ class _NotificationsPageState extends State<NotificationsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
-  final NotificationRepository _notificationRepository = NotificationRepository();
+  final NotificationRepository _notificationRepository =
+      NotificationRepository();
   String _searchQuery = '';
   String _typeFilter = 'All';
   List<NotificationModel> _notifications = [];
@@ -1063,10 +1060,6 @@ class _NotificationsPageState extends State<NotificationsPage>
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Send Notification Dialog
-// ═══════════════════════════════════════════════════════════════════════════════
-
 class _SendNotificationDialog extends StatefulWidget {
   final NotificationTarget target;
 
@@ -1082,25 +1075,53 @@ class _SendNotificationDialogState extends State<_SendNotificationDialog> {
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
   final _userSearchController = TextEditingController();
-  final NotificationRepository _notificationRepository = NotificationRepository();
+  final NotificationRepository _notificationRepository =
+      NotificationRepository();
 
   late NotificationTarget _target;
   String? _selectedUserId;
   String? _selectedUserName;
+  String? _selectedUserEmail;
   bool _isSending = false;
+  bool _isLoadingUsers = true;
 
-  // Sample user data
-  final List<Map<String, String>> _users = [
-    {'id': 'user1', 'name': 'John Smith', 'email': 'john@example.com'},
-    {'id': 'user2', 'name': 'Jane Doe', 'email': 'jane@example.com'},
-    {'id': 'user3', 'name': 'Mike Johnson', 'email': 'mike@example.com'},
-    {'id': 'user4', 'name': 'Sarah Wilson', 'email': 'sarah@example.com'},
-  ];
+  List<Map<String, dynamic>> _users = [];
+  List<Map<String, dynamic>> _filteredUsers = [];
 
   @override
   void initState() {
     super.initState();
     _target = widget.target;
+    _loadUsers();
+  }
+
+  Future<void> _loadUsers() async {
+    setState(() => _isLoadingUsers = true);
+    try {
+      final users = await _notificationRepository.getCustomers();
+      setState(() {
+        _users = users;
+        _filteredUsers = users;
+        _isLoadingUsers = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingUsers = false);
+    }
+  }
+
+  void _filterUsers(String query) {
+    if (query.isEmpty) {
+      setState(() => _filteredUsers = _users);
+    } else {
+      setState(() {
+        _filteredUsers = _users.where((user) {
+          final name = (user['name'] ?? '').toString().toLowerCase();
+          final email = (user['email'] ?? '').toString().toLowerCase();
+          return name.contains(query.toLowerCase()) ||
+              email.contains(query.toLowerCase());
+        }).toList();
+      });
+    }
   }
 
   @override
@@ -1137,6 +1158,7 @@ class _SendNotificationDialogState extends State<_SendNotificationDialog> {
         await _notificationRepository.sendToUser(
           userId: _selectedUserId!,
           userName: _selectedUserName ?? 'User',
+          userEmail: _selectedUserEmail,
           title: _titleController.text,
           body: _bodyController.text,
           type: NotificationType.custom,
@@ -1290,6 +1312,7 @@ class _SendNotificationDialogState extends State<_SendNotificationDialog> {
                   _target = NotificationTarget.allUsers;
                   _selectedUserId = null;
                   _selectedUserName = null;
+                  _selectedUserEmail = null;
                 }),
               ),
             ),

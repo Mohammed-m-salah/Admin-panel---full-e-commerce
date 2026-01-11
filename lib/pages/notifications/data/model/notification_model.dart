@@ -20,6 +20,8 @@ class NotificationModel {
   final NotificationTarget target;
   final String? userId;
   final String? userName;
+  final String? userEmail;
+  final Map<String, dynamic>? data;
   final DateTime createdAt;
   final int sentCount;
   final int readCount;
@@ -33,11 +35,77 @@ class NotificationModel {
     required this.target,
     this.userId,
     this.userName,
+    this.userEmail,
+    this.data,
     DateTime? createdAt,
     this.sentCount = 0,
     this.readCount = 0,
     this.isAutomatic = false,
   }) : createdAt = createdAt ?? DateTime.now();
+
+  // تحويل من Map (Supabase)
+  factory NotificationModel.fromMap(Map<String, dynamic> map) {
+    return NotificationModel(
+      id: map['id'],
+      title: map['title'] ?? '',
+      body: map['body'] ?? '',
+      type: _parseNotificationType(map['type']),
+      target: _parseNotificationTarget(map['target']),
+      userId: map['user_id'],
+      userName: map['user_name'],
+      userEmail: map['user_email'],
+      data: map['data'],
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'])
+          : DateTime.now(),
+      sentCount: map['sent_count'] ?? 0,
+      readCount: map['read_count'] ?? 0,
+      isAutomatic: map['is_automatic'] ?? false,
+    );
+  }
+
+  // تحويل إلى Map (Supabase)
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'body': body,
+      'type': type.name,
+      'target': target.name,
+      'user_id': userId,
+      'user_name': userName,
+      'user_email': userEmail,
+      'data': data,
+      'sent_count': sentCount,
+      'read_count': readCount,
+      'is_automatic': isAutomatic,
+    };
+  }
+
+  static NotificationType _parseNotificationType(String? type) {
+    switch (type) {
+      case 'newOrder':
+        return NotificationType.newOrder;
+      case 'orderStatusChange':
+        return NotificationType.orderStatusChange;
+      case 'newOffer':
+        return NotificationType.newOffer;
+      case 'productBackInStock':
+        return NotificationType.productBackInStock;
+      case 'newBanner':
+        return NotificationType.newBanner;
+      default:
+        return NotificationType.custom;
+    }
+  }
+
+  static NotificationTarget _parseNotificationTarget(String? target) {
+    switch (target) {
+      case 'specificUser':
+        return NotificationTarget.specificUser;
+      default:
+        return NotificationTarget.allUsers;
+    }
+  }
 
   String get typeDisplayName {
     switch (type) {
@@ -71,7 +139,7 @@ class AutoNotificationSetting {
   final NotificationType type;
   final String title;
   final String description;
-  final bool isEnabled;
+  bool isEnabled;
 
   AutoNotificationSetting({
     required this.type,
